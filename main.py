@@ -5,8 +5,10 @@
 # update
 # draw
 
-# why? what? how?
+# imports the modules from the library such as math, random, sys, and pygame
+# imports other methods from other files
 
+# yay I can use github from vs CODE
 import math
 import random
 import sys
