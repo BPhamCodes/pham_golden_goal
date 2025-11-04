@@ -14,6 +14,10 @@ RED = (255, 0, 0)
 BLACK = (0, 0, 0)
 GREY = (150, 150, 150)
 BLUE = (0, 0, 255)
+# gradual slowdown
+FRICTION = 0.98
+# reverses direction on bounce
+BOUNCE = -1   
 
 FPS = 30
 SCORE = 0
