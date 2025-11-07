@@ -35,11 +35,13 @@ class Player(Sprite):
         self.health = 100
         self.coins = 0
         self.cd = Cooldown(1000)
+        self.weapon_cd = Cooldown(1000)
         self.dir = vec(0,0)
         self.walking = False
         self.jumping = False
         self.running_right = False
         self.running_left = False
+        self.attacking = False
         self.current_frame = 0
         self.last_update = 0
     # loads images for the idle and running frames
@@ -101,6 +103,12 @@ class Player(Sprite):
                 self.image = self.running_frames_left[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
+    def attack(self):
+        if not self.attacking and self.weapon_cd.ready():
+            self.weapon_cd.start()
+            self.attacking = True
+            print ("attacking")
+            self.weapon = Sword(self.game, self.rect.x, self.rect.y)
     # Identifies the keys the user inputs and moves the player accordingly
     def get_keys(self):
         self.vel = vec(0,0)
@@ -129,10 +137,19 @@ class Player(Sprite):
             self.vel.x = self.speed*self.game.dt
             self.dir = vec(1,0)
             self.running_right = True
+        if keys[pg.K_k]:
+            self.attacking = True
+            self.attack()
         # accounting for diagonal
         if self.vel[0] != 0 and self.vel[1] != 0:
             self.vel *= 0.7071
-    
+    # def attack(self):
+    #     if self.attacking and self.weapon_cd.ready():
+    #         self.weapon_cd.start()
+    #         self.attacking = True
+    #         print ("attacking")
+    #     self.attacking = False
+
     # Detects if the sprite collides with each other
     # Player collides with Wall
     def collide_with_walls(self, dir):
@@ -215,6 +232,8 @@ class Player(Sprite):
         self.collide_with_walls('y')
         self.collide_with_stuff(self.game.all_mobs, False)
         self.collide_with_stuff(self.game.all_coins, True)
+        if self.attacking:
+            Sword(self.game, self.rect.x, self.rect.y)
         # print(self.cd.ready())
         '''
         if not self.cd.ready():
@@ -312,7 +331,7 @@ class Wall(Sprite):
         Sprite.__init__(self, self.groups)
         self.game = game
         self.image = pg.Surface(TILESIZE)
-        self.image.fill(GREY)
+        self.image.fill(GREEN)
         self.rect = self.image.get_rect()
         self.vel = vec(0,0)
         self.pos = vec(x,y) * TILESIZE[0]
@@ -373,6 +392,21 @@ class Wall(Sprite):
         self.collide_with_walls('x')
         self.rect.y = self.pos.y
         self.collide_with_walls('y')
+
+class Sword(Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.groups = game.all_sprites, game.all_swords
+        Sprite.__init__(self, self.groups)
+        self.image = pg.Surface(TILESIZE)
+        self.image.fill(WHITE)
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILESIZE[0]
+        self.rect.y = y * TILESIZE[1]
+    def update(self):
+        self.rect.x = self.game.player.rect.x
+        self.rect.y = self.game.player.rect.y
+
 
 # Class under parent class Sprite
 class MoveableBall(Sprite):

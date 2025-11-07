@@ -38,6 +38,9 @@ class Game:
       # loads image into memory when a new game is created and load_data is called
       self.ball_img = pg.image.load(path.join(self.img_folder, 'soccerball.png')).convert_alpha()
      # self.player_img_inv = pg.image.load(path.join(self.img_folder, 'the_bell_16x16.png')).convert_alpha()
+     
+      self.bg_img = pg.image.load(path.join(self.img_folder, 'grass_bg.png')).convert_alpha()
+      self.bg_img = pg.transform.scale(self.bg_img, (WIDTH, HEIGHT))
 
    # Defines new data and sprite groups
    # inputs the sprites based off the tilemap
@@ -50,8 +53,10 @@ class Game:
       self.all_coins = pg.sprite.Group()
       self.all_walls = pg.sprite.Group()
       self.all_projectiles = pg.sprite.Group()
+      self.all_swords = pg.sprite.Group()
       self.all_moveable_balls = pg.sprite.Group()
       # places the sprite based off the tilemap
+      #self.sword = Sword(self, 0,0)
       for row, tiles, in enumerate(self.map.data):
          # print(row)
          for col, tile, in enumerate(tiles):
@@ -66,6 +71,7 @@ class Game:
                Coin(self, col, row)
             elif tile == 'P':
                self.player = Player(self, col, row)
+            #self.sword = Sword(self, 0,0)
             #elif tile == 'M':
                #Mob(self, col, row)
    # Runs the program and calls the function
@@ -108,6 +114,7 @@ class Game:
    # Draws the text with the settings
    def draw(self):
       self.screen.fill(WHITE)
+      self.screen.blit(self.bg_img, (0, 0))
       self.draw_text(self.screen, str(self.player.health), 24, BLACK, 100, 100)
       self.draw_text(self.screen, str(self.player.coins), 24, BLACK, 400, 100)
       self.draw_text(self.screen, str(self.time), 24, BLACK, 500, 100)
