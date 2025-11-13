@@ -27,7 +27,6 @@ class Game:
       self.screen = pg.display.set_mode((WIDTH, HEIGHT))
       pg.display.set_caption("Golden Goal!!!")
       self.playing = True
-   
    # sets up a game folder directory path using the current folder containing THIS file
    # give the Game class a map property which uses the Map class to parse the level1.txt file
    # loads image files from images folder
@@ -65,8 +64,8 @@ class Game:
                Wall(self, col, row, "unmoveable")
             if tile == '2':
                Wall(self, col, row, "moveable")
-            if tile == "B":
-               MoveableBall(self, col, row)
+            #if tile == "B":
+              # MoveableBall(self, col, row)
             elif tile == 'C':
                Coin(self, col, row)
             elif tile == 'P':
@@ -88,11 +87,17 @@ class Game:
    # Checks for any events that occur in the game based off of the input
    def events(self):
       for event in pg.event.get():
-        if event.type == pg.QUIT:
+         if event.type == pg.QUIT:
          #  print("this is happening")
           self.playing = False
-        if event.type == pg.MOUSEBUTTONDOWN:
-           pass
+         if event.type == pg.KEYDOWN:
+           if event.key == pg.K_k:
+              self.player.attacking = True
+              self.player.weapon = Sword(self, self.player.rect.x, self.player.rect.y)
+         if event.type == pg.KEYUP:
+            if event.key == pg.K_k:
+              self.player.attacking = False
+              self.player.weapon.kill()
            #print("I can get input from mousey mouse mouse mousekerson")
    # updates the game's sprites, time, coins
    def update(self):

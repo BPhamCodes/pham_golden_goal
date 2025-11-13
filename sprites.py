@@ -44,6 +44,11 @@ class Player(Sprite):
         self.attacking = False
         self.current_frame = 0
         self.last_update = 0
+
+        self.jump_height = 20
+        self.y_velocity = self.jump_height
+        self.jumping = False
+
     # loads images for the idle and running frames
     def load_images(self):
         # Loops throughout the idle animation png and appends a frame into a list
@@ -116,39 +121,33 @@ class Player(Sprite):
         self.running_right = False
         self.running_left = False
         # Shoots projectiles using the Player's x, y, and direction
-        if keys[pg.K_SPACE]:
-            print(self.rect.x)
-            p = Projectile(self.game, self.rect.x, self.rect.y, self.dir)
-        # Identifies w to walk forward
-        if keys[pg.K_w]:
-            self.vel.y = -self.speed*self.game.dt
-            self.dir = vec(0,-1)
+        #if keys[pg.K_SPACE]:
+           # print(self.rect.x)
+           # p = Projectile(self.game, self.rect.x, self.rect.y, self.dir)
+
         # Identifies a to walk left
         if keys[pg.K_a]:
             self.vel.x = -self.speed*self.game.dt
             self.dir = vec(-1,0)
             self.running_left = True
-        # Identifies s to walk backwards
-        if keys[pg.K_s]:
-            self.vel.y = self.speed*self.game.dt
-            self.dir = vec(0,1)
         # Identifies d to walk right
         if keys[pg.K_d]:
             self.vel.x = self.speed*self.game.dt
             self.dir = vec(1,0)
             self.running_right = True
-        if keys[pg.K_k]:
-            self.attacking = True
-            self.attack()
+        # Identifies space to jump
+        if keys[pg.K_SPACE]:
+            self.jumping = True
         # accounting for diagonal
         if self.vel[0] != 0 and self.vel[1] != 0:
             self.vel *= 0.7071
-    # def attack(self):
-    #     if self.attacking and self.weapon_cd.ready():
-    #         self.weapon_cd.start()
-    #         self.attacking = True
-    #         print ("attacking")
-    #     self.attacking = False
+    def attack(self):
+        if self.attacking and self.weapon_cd.ready():
+            self.weapon_cd.start()
+            self.attacking = True
+            print ("attacking")
+            #rect.kill()
+            self.attacking = False
 
     # Detects if the sprite collides with each other
     # Player collides with Wall
@@ -232,9 +231,41 @@ class Player(Sprite):
         self.collide_with_walls('y')
         self.collide_with_stuff(self.game.all_mobs, False)
         self.collide_with_stuff(self.game.all_coins, True)
-        if self.attacking:
-            Sword(self.game, self.rect.x, self.rect.y)
-        # print(self.cd.ready())
+        self.y_velocity -= GRAVITY
+
+        # Gravity + jumping
+        if self.jumping:
+            # Move by current vertical velocity
+            self.pos.y -= self.y_velocity
+            self.rect.y = self.pos.y
+            # Check for collisions with collidable walls
+            hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
+            if hits:
+                # If moving up and hit a ceiling
+                if self.y_velocity > 0:
+                    self.pos.y = hits[0].rect.bottom
+                # If moving down and hit any floor
+                else:
+                    self.pos.y = hits[0].rect.top - self.rect.height
+                    self.jumping = False
+                    self.y_velocity = self.jump_height
+            self.rect.y = self.pos.y
+        # Not jumping, applying gravity (fall)
+        else:
+            # Sets cap on fall velocity to jump_height
+            if self.y_velocity < -self.jump_height:
+                self.y_velocity = -self.jump_height
+            # falling
+            self.pos.y += self.jump_height - self.y_velocity
+            self.rect.y = self.pos.y
+            # Check collisions for falling
+            hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
+            if hits:
+                self.pos.y = hits[0].rect.top - self.rect.height
+                self.jumping = False
+                self.y_velocity = self.jump_height
+            self.rect.y = self.pos.y
+
         '''
         if not self.cd.ready():
             #self.image = self.game.player_img_inv
@@ -393,6 +424,7 @@ class Wall(Sprite):
         self.rect.y = self.pos.y
         self.collide_with_walls('y')
 
+# Creates a sprite to have the same coordinates/position of the player
 class Sword(Sprite):
     def __init__(self, game, x, y):
         self.game = game
@@ -403,11 +435,12 @@ class Sword(Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x * TILESIZE[0]
         self.rect.y = y * TILESIZE[1]
+    # Sword tracks the player's rect position
     def update(self):
         self.rect.x = self.game.player.rect.x
         self.rect.y = self.game.player.rect.y
 
-
+'''
 # Class under parent class Sprite
 class MoveableBall(Sprite):
     def __init__(self, game, x, y):
@@ -492,7 +525,7 @@ class MoveableBall(Sprite):
         # Makes the ball eventaully stop
         if self.vel.length() < 0.1:
             self.vel = vec(0, 0)
-
+'''
 # Class under parent class Sprite
 class Projectile(Sprite):
     def __init__(self, game, x, y, dir):

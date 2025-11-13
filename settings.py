@@ -16,6 +16,7 @@ GREY = (150, 150, 150)
 BLUE = (0, 0, 255)
 # gradual slowdown
 FRICTION = 0.98
+GRAVITY = 1
 # reverses direction on bounce
 BOUNCE = -1   
 
