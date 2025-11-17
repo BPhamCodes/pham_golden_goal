@@ -12,7 +12,8 @@ WHITE = (255, 255, 255)
 YELLOW = (255, 255, 0)
 RED = (255, 0, 0)
 BLACK = (0, 0, 0)
-GREY = (150, 150, 150)
+GREY = (50, 50, 50)
+DARK_GREY = (15, 15, 15)
 BLUE = (0, 0, 255)
 # gradual slowdown
 FRICTION = 0.98

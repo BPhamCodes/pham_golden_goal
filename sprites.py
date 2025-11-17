@@ -15,6 +15,8 @@ from random import choice
 from os import path
 vec = pg.math.Vector2
 
+# https://www.youtube.com/watch?v=ST-Qq3WBZBE: source to add jump
+
 # Class under parent class Sprite
 # Defines a new sprite that the player can control based off key inputs
 # Collisions will be detected (walls, coins, and ball(s))
@@ -23,9 +25,13 @@ class Player(Sprite):
         self.groups = game.all_sprites
         Sprite.__init__(self, self.groups)
         self.game = game
-        self.spritesheet = Spritesheet(path.join(self.game.img_folder, "spritesheet.png"))
-        self.spritesheet_anim = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim.png"))
-        self.spritesheet_anim2 = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim2.png"))
+
+        # Player's sprite's images
+        self.spritesheet_idle = Spritesheet(path.join(self.game.img_folder, "spritesheet_idle.png"))
+        self.spritesheet_walk_right = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_walking_right.png"))
+        self.spritesheet_walk_left = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_walking_left.png"))
+        self.spritesheet_jump_right = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_jumping_right.png"))
+        self.spritesheet_jump_left = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_jumping_left.png"))
         self.load_images()
         self.image = pg.Surface((32, 32))
         self.rect = self.image.get_rect()
@@ -37,43 +43,62 @@ class Player(Sprite):
         self.cd = Cooldown(1000)
         self.weapon_cd = Cooldown(1000)
         self.dir = vec(0,0)
+
+        # Variables used for boolean expressions
         self.walking = False
         self.jumping = False
         self.running_right = False
         self.running_left = False
         self.attacking = False
+        self.jumping = False
+
         self.current_frame = 0
         self.last_update = 0
 
-        self.jump_height = 20
+        self.jump_height = 15
         self.y_velocity = self.jump_height
-        self.jumping = False
 
     # loads images for the idle and running frames
     def load_images(self):
         # Loops throughout the idle animation png and appends a frame into a list
         # Calls list to get each image
         self.standing_frames = [
-            self.spritesheet.get_image(0, 0, 64, 64),
-            self.spritesheet.get_image(0, 64, 64, 64)]
+            self.spritesheet_idle.get_image(0, 0, 64, 64),
+            self.spritesheet_idle.get_image(0, 64, 64, 64)]
         for frame in self.standing_frames:
             frame.set_colorkey(BLACK)
 
         # Loops throughout the running animation png (right) and appends a frame into a list
         # Calls list to get each image
         self.running_frames_right = []
-        for i in range(10):
-            frame = self.spritesheet_anim.get_image(0, i * 64, 64, 64)
+        for i in range(11):
+            frame = self.spritesheet_walk_right.get_image(0, i * 64, 64, 64)
             frame.set_colorkey(BLACK)
             self.running_frames_right.append(frame)
         
         # Loops throughout the running animation png (left) and appends a frame into a list
         # Calls list to get each image
         self.running_frames_left = []
-        for i in range(10):
-            frame = self.spritesheet_anim2.get_image(0, i * 64, 64, 64)
+        for i in range(11):
+            frame = self.spritesheet_walk_left.get_image(0, i * 64, 64, 64)
             frame.set_colorkey(BLACK)
             self.running_frames_left.append(frame)
+
+        # Loops throughout the running animation png (up and right) and appends a frame into a list
+        # Calls list to get each image
+        self.jumping_frames_right = []
+        for i in range(6):
+            frame = self.spritesheet_jump_right.get_image(0, i * 64, 64, 64)
+            frame.set_colorkey(BLACK)
+            self.jumping_frames_right.append(frame)
+
+        # Loops throughout the running animation png (up and left) and appends a frame into a list
+        # Calls list to get each image
+        self.jumping_frames_left = []
+        for i in range(6):
+            frame = self.spritesheet_jump_left.get_image(0, i * 64, 64, 64)
+            frame.set_colorkey(BLACK)
+            self.jumping_frames_left.append(frame)
 
     # Creates the animations for the idle and running
     def animate(self):
@@ -90,7 +115,7 @@ class Player(Sprite):
                 self.rect.bottom = bottom
         # creates the running animation if the player is moving right
         # With time per frame
-        if self.running_right:
+        if self.running_right and not self.jumping:
             if now - self.last_update > 50:
                 self.last_update = now
                 self.current_frame = (self.current_frame + 1) % len(self.running_frames_right)
@@ -98,9 +123,9 @@ class Player(Sprite):
                 self.image = self.running_frames_right[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
-        # creates the running animatoin if the player is moving left
+        # creates the running animation if the player is moving left
         # With time per frame
-        if self.running_left:
+        if self.running_left and not self.jumping:
             if now - self.last_update > 50:
                 self.last_update = now
                 self.current_frame = (self.current_frame + 1) % len(self.running_frames_left)
@@ -108,12 +133,33 @@ class Player(Sprite):
                 self.image = self.running_frames_left[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
-    def attack(self):
-        if not self.attacking and self.weapon_cd.ready():
-            self.weapon_cd.start()
-            self.attacking = True
-            print ("attacking")
-            self.weapon = Sword(self.game, self.rect.x, self.rect.y)
+        # creates the jumping animatoin if the player is moving left and is jumping
+        # With time per frame
+        if self.jumping and self.running_left:
+            if now - self.last_update > 200:
+                self.last_update = now
+                self.current_frame = (self.current_frame + 1) % len(self.jumping_frames_left)
+                bottom = self.rect.bottom
+                self.image = self.jumping_frames_left[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
+        # creates the running animatoin if the player is moving right and jumping, or is just jumping
+        # With time per frame
+        if (self.jumping and self.running_right) or self.jumping:
+            if now - self.last_update > 200:
+                self.last_update = now
+                self.current_frame = (self.current_frame + 1) % len(self.jumping_frames_right)
+                bottom = self.rect.bottom
+                self.image = self.jumping_frames_right[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
+    
+    # def attack(self):
+    #     if not self.attacking and self.weapon_cd.ready():
+    #         self.weapon_cd.start()
+    #         self.attacking = True
+    #         print ("attacking")
+    #         self.weapon = Sword(self.game, self.rect.x, self.rect.y)
     # Identifies the keys the user inputs and moves the player accordingly
     def get_keys(self):
         self.vel = vec(0,0)
@@ -243,6 +289,7 @@ class Player(Sprite):
             if hits:
                 # If moving up and hit a ceiling
                 if self.y_velocity > 0:
+                    self.y_velocity = 0
                     self.pos.y = hits[0].rect.bottom
                 # If moving down and hit any floor
                 else:
@@ -362,7 +409,7 @@ class Wall(Sprite):
         Sprite.__init__(self, self.groups)
         self.game = game
         self.image = pg.Surface(TILESIZE)
-        self.image.fill(GREEN)
+        self.image.fill(DARK_GREY)
         self.rect = self.image.get_rect()
         self.vel = vec(0,0)
         self.pos = vec(x,y) * TILESIZE[0]

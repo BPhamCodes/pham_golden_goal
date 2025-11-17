@@ -9,6 +9,7 @@
 # imports other methods from other files
 
 # yay I can use github from vs CODE
+# Uncomment screen.bg_img and self.screen.blit(self.bg_img, (0, 0))
 import math
 import random
 import sys
@@ -25,7 +26,7 @@ class Game:
       pg.init()
       self.clock = pg.time.Clock()
       self.screen = pg.display.set_mode((WIDTH, HEIGHT))
-      pg.display.set_caption("Golden Goal!!!")
+      pg.display.set_caption("Freedom")
       self.playing = True
    # sets up a game folder directory path using the current folder containing THIS file
    # give the Game class a map property which uses the Map class to parse the level1.txt file
@@ -38,8 +39,8 @@ class Game:
       self.ball_img = pg.image.load(path.join(self.img_folder, 'soccerball.png')).convert_alpha()
      # self.player_img_inv = pg.image.load(path.join(self.img_folder, 'the_bell_16x16.png')).convert_alpha()
      
-      self.bg_img = pg.image.load(path.join(self.img_folder, 'grass_bg.png')).convert_alpha()
-      self.bg_img = pg.transform.scale(self.bg_img, (WIDTH, HEIGHT))
+     # self.bg_img = pg.image.load(path.join(self.img_folder, 'grass_bg.png')).convert_alpha()
+     # self.bg_img = pg.transform.scale(self.bg_img, (WIDTH, HEIGHT))
 
    # Defines new data and sprite groups
    # inputs the sprites based off the tilemap
@@ -70,7 +71,6 @@ class Game:
                Coin(self, col, row)
             elif tile == 'P':
                self.player = Player(self, col, row)
-            #self.sword = Sword(self, 0,0)
             #elif tile == 'M':
                #Mob(self, col, row)
    # Runs the program and calls the function
@@ -118,8 +118,8 @@ class Game:
         surface.blit(text_surface, text_rect)
    # Draws the text with the settings
    def draw(self):
-      self.screen.fill(WHITE)
-      self.screen.blit(self.bg_img, (0, 0))
+      self.screen.fill(GREY)
+      #self.screen.blit(self.bg_img, (0, 0))
       self.draw_text(self.screen, str(self.player.health), 24, BLACK, 100, 100)
       self.draw_text(self.screen, str(self.player.coins), 24, BLACK, 400, 100)
       self.draw_text(self.screen, str(self.time), 24, BLACK, 500, 100)
