@@ -16,6 +16,7 @@ from os import path
 vec = pg.math.Vector2
 
 # https://www.youtube.com/watch?v=ST-Qq3WBZBE: source to add jump
+# Used help from ChatGPT with jumping
 
 # Class under parent class Sprite
 # Defines a new sprite that the player can control based off key inputs
@@ -51,6 +52,7 @@ class Player(Sprite):
         self.running_left = False
         self.attacking = False
         self.jumping = False
+        self.crouching = False
 
         self.current_frame = 0
         self.last_update = 0
@@ -160,6 +162,7 @@ class Player(Sprite):
     #         self.attacking = True
     #         print ("attacking")
     #         self.weapon = Sword(self.game, self.rect.x, self.rect.y)
+    
     # Identifies the keys the user inputs and moves the player accordingly
     def get_keys(self):
         self.vel = vec(0,0)
@@ -187,13 +190,17 @@ class Player(Sprite):
         # accounting for diagonal
         if self.vel[0] != 0 and self.vel[1] != 0:
             self.vel *= 0.7071
-    def attack(self):
-        if self.attacking and self.weapon_cd.ready():
-            self.weapon_cd.start()
-            self.attacking = True
-            print ("attacking")
-            #rect.kill()
-            self.attacking = False
+
+    # If player is crouching, then the speed is slower, or else, it remains the same
+    def crouch(self):
+        # if crouching
+        if self.crouching:
+            self.speed = 100
+            print("crouching")
+        # if not crouching
+        else:
+            self.speed = 150
+            print("not crouching")
 
     # Detects if the sprite collides with each other
     # Player collides with Wall

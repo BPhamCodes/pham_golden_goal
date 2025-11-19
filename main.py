@@ -26,7 +26,7 @@ class Game:
       pg.init()
       self.clock = pg.time.Clock()
       self.screen = pg.display.set_mode((WIDTH, HEIGHT))
-      pg.display.set_caption("Freedom")
+      pg.display.set_caption("Escape!")
       self.playing = True
    # sets up a game folder directory path using the current folder containing THIS file
    # give the Game class a map property which uses the Map class to parse the level1.txt file
@@ -88,8 +88,9 @@ class Game:
    def events(self):
       for event in pg.event.get():
          if event.type == pg.QUIT:
-         #  print("this is happening")
-          self.playing = False
+            self.playing = False
+
+         # Checks for inputs on k and sets self.player.attacking = True
          if event.type == pg.KEYDOWN:
            if event.key == pg.K_k:
               self.player.attacking = True
@@ -98,7 +99,17 @@ class Game:
             if event.key == pg.K_k:
               self.player.attacking = False
               self.player.weapon.kill()
-           #print("I can get input from mousey mouse mouse mousekerson")
+
+         # Checks for inputs on left control and sets crouching state to true or false
+         # Calls crouch function in Player class
+         if event.type == pg.KEYDOWN:
+            if event.key == pg.K_LCTRL:
+               self.player.crouching = True
+               self.player.crouch()
+         if event.type == pg.KEYUP:
+            if event.key == pg.K_LCTRL:
+               self.player.crouching = False
+               self.player.crouch()
    # updates the game's sprites, time, coins
    def update(self):
       self.all_sprites.update()
