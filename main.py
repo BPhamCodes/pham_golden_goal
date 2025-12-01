@@ -7,6 +7,7 @@
 
 # imports the modules from the library such as math, random, sys, and pygame
 # imports other methods from other files
+# Start screen from Mr. Cozart
 
 # yay I can use github from vs CODE
 # Uncomment screen.bg_img and self.screen.blit(self.bg_img, (0, 0))
@@ -28,6 +29,7 @@ class Game:
       self.screen = pg.display.set_mode((WIDTH, HEIGHT))
       pg.display.set_caption("Escape!")
       self.playing = True
+      self.running = True
    # sets up a game folder directory path using the current folder containing THIS file
    # give the Game class a map property which uses the Map class to parse the level1.txt file
    # loads image files from images folder
@@ -65,8 +67,6 @@ class Game:
                Wall(self, col, row, "unmoveable")
             if tile == '2':
                Wall(self, col, row, "moveable")
-            #if tile == "B":
-              # MoveableBall(self, col, row)
             elif tile == 'C':
                Coin(self, col, row)
             elif tile == 'P':
@@ -88,8 +88,10 @@ class Game:
    def events(self):
       for event in pg.event.get():
          if event.type == pg.QUIT:
-            self.playing = False
-
+         #  print("this is happening")
+            if self.playing:
+               self.playing = False
+            self.running = False
          # Checks for inputs on k and sets self.player.attacking = True
          if event.type == pg.KEYDOWN:
            if event.key == pg.K_k:
@@ -136,10 +138,30 @@ class Game:
       self.draw_text(self.screen, str(self.time), 24, BLACK, 500, 100)
       self.all_sprites.draw(self.screen)
       pg.display.flip()
+   def wait_for_key(self):
+        waiting = True
+        while waiting:
+            self.clock.tick(FPS)
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    waiting = False
+                    self.running = False
+                if event.type == pg.KEYUP:
+                    waiting = False
+   def show_start_screen(self):
+        # game splash/start screen
+      #   pg.mixer.music.load(path.join(self.snd_dir, 'Yippee.ogg'))
+      #   pg.mixer.music.play(loops=-1)
+        self.screen.fill(BLACK)
+        self.draw_text(self.screen,"PRESS ANY KEY TO START", 48, WHITE, WIDTH / 2, HEIGHT / 4)
+        pg.display.flip()
+        self.wait_for_key()
+        pg.mixer.music.fadeout(500)
 
-# Runs the game
 if __name__ == "__main__":
-# creating an instance or instantiating the Game class
+#    creating an instance or instantiating the Game class
    g = Game()
-   g.new()
-   g.run()
+   g.show_start_screen()
+   while g.running:
+      g.new()
+      g.run()

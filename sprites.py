@@ -170,9 +170,9 @@ class Player(Sprite):
         self.running_right = False
         self.running_left = False
         # Shoots projectiles using the Player's x, y, and direction
-        #if keys[pg.K_SPACE]:
-           # print(self.rect.x)
-           # p = Projectile(self.game, self.rect.x, self.rect.y, self.dir)
+        if keys[pg.K_p]:
+            print(self.rect.x)
+            p = Projectile(self.game, self.rect.x, self.rect.y, self.dir)
 
         # Identifies a to walk left
         if keys[pg.K_a]:
@@ -494,92 +494,6 @@ class Sword(Sprite):
         self.rect.x = self.game.player.rect.x
         self.rect.y = self.game.player.rect.y
 
-'''
-# Class under parent class Sprite
-class MoveableBall(Sprite):
-    def __init__(self, game, x, y):
-        self.groups = game.all_sprites, game.all_moveable_balls
-        Sprite.__init__(self, self.groups)
-        self.game = game
-        self.image = game.ball_img
-        self.image.set_colorkey(BLACK)
-        self.rect = self.image.get_rect()
-        self.pos = vec(x, y) * TILESIZE[0]
-        self.rect.topleft = self.pos
-        self.vel = vec(randint(-3, 3), randint(-3, 3))
-        self.state = "moveable"
-
-    # If the ball's left or right side overlaps the edge of the screen's width and height,
-    # then the ball bounces back by changing the vector in the opposite direction
-    def collide_with_edges(self):
-        # Bounces off screen's sides by checking collisions
-        if self.rect.left < 0 or self.rect.right > WIDTH:
-            self.vel.x *= BOUNCE
-            self.rect.x = max(0, min(self.rect.x, WIDTH - self.rect.width))
-            self.pos.x = self.rect.x
-        # Bounces with screen's top or bottom by checking collisions
-        if self.rect.top < 0 or self.rect.bottom > HEIGHT:
-            self.vel.y *= BOUNCE
-            self.rect.y = max(0, min(self.rect.y, HEIGHT - self.rect.height))
-            self.pos.y = self.rect.y
-
-    # Detects collisions with walls
-    def collide_with_walls(self):
-        # Bounce off of unmoveable walls
-        hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
-        for hit in hits:
-            if hit.state == "unmoveable":
-                # All of these if conditions assumes that if the ball is less than 25 pixels away from the wall
-                # then, this is considered a collision to account for possible frameskips that cause the ball to phase through
-                if abs(self.rect.right - hit.rect.left) < 25 and self.vel.x > 0:
-                    self.rect.right = hit.rect.left
-                    self.vel.x *= BOUNCE
-                if abs(self.rect.left - hit.rect.right) < 25 and self.vel.x < 0:
-                    self.rect.left = hit.rect.right
-                    self.vel.x *= BOUNCE
-                if abs(self.rect.bottom - hit.rect.top) < 25 and self.vel.y > 0:
-                    self.rect.bottom = hit.rect.top
-                    self.vel.y *= BOUNCE
-                if abs(self.rect.top - hit.rect.bottom) < 25 and self.vel.y < 0:
-                    self.rect.top = hit.rect.bottom
-                    self.vel.y *= BOUNCE
-                # updates ball position
-                self.pos = vec(self.rect.topleft)
-                
-    # Initializes the player
-    # measures the dfference between the player and the ball
-    def collide_with_player(self):
-        player = self.game.player
-        if self.rect.colliderect(player.rect):
-            # difference in coordinates from player to ball
-            self.diff_pos_player = self.pos - player.pos
-            if self.diff_pos_player == (0, 0):
-                self.diff_pos_player = vec(1, 0)
-            # Normalize the difference to get the direction, not the distance
-            self.diff_pos_player = self.diff_pos_player.normalize()
-
-            # Pushes ball away from player; stronger if player is moving faster
-            impact_strength = player.vel.length() + 5
-            self.vel += self.diff_pos_player * impact_strength
-
-            # Knockback for player
-            player.pos -= self.diff_pos_player * 5
-            player.rect.topleft = player.pos
-    # Updates ball behavior
-    def update(self):
-        self.pos += self.vel
-        self.rect.topleft = self.pos
-
-        self.collide_with_edges()
-        self.collide_with_walls()
-        self.collide_with_player()
-
-        # Apply friction
-        self.vel *= FRICTION
-        # Makes the ball eventaully stop
-        if self.vel.length() < 0.1:
-            self.vel = vec(0, 0)
-'''
 # Class under parent class Sprite
 class Projectile(Sprite):
     def __init__(self, game, x, y, dir):
