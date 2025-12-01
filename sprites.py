@@ -33,6 +33,11 @@ class Player(Sprite):
         self.spritesheet_walk_left = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_walking_left.png"))
         self.spritesheet_jump_right = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_jumping_right.png"))
         self.spritesheet_jump_left = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_jumping_left.png"))
+        
+        self.spritesheet_crouch_idle = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_crouching_idle.png"))
+        self.spritesheet_crouch_right = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_crouching_walk_right.png"))
+        self.spritesheet_crouch_left = Spritesheet(path.join(self.game.img_folder, "spritesheet_anim_crouching_walk_left.png"))
+
         self.load_images()
         self.image = pg.Surface((32, 32))
         self.rect = self.image.get_rect()
@@ -53,7 +58,7 @@ class Player(Sprite):
         self.attacking = False
         self.jumping = False
         self.crouching = False
-
+        
         self.current_frame = 0
         self.last_update = 0
 
@@ -70,7 +75,7 @@ class Player(Sprite):
         for frame in self.standing_frames:
             frame.set_colorkey(BLACK)
 
-        # Loops throughout the running animation png (right) and appends a frame into a list
+        # Loops throughout the running animation png and appends a frame into a list
         # Calls list to get each image
         self.running_frames_right = []
         for i in range(11):
@@ -78,7 +83,7 @@ class Player(Sprite):
             frame.set_colorkey(BLACK)
             self.running_frames_right.append(frame)
         
-        # Loops throughout the running animation png (left) and appends a frame into a list
+        # Loops throughout the running animation png and appends a frame into a list
         # Calls list to get each image
         self.running_frames_left = []
         for i in range(11):
@@ -86,7 +91,7 @@ class Player(Sprite):
             frame.set_colorkey(BLACK)
             self.running_frames_left.append(frame)
 
-        # Loops throughout the running animation png (up and right) and appends a frame into a list
+        # Loops throughout the running animation png and appends a frame into a list
         # Calls list to get each image
         self.jumping_frames_right = []
         for i in range(6):
@@ -94,13 +99,37 @@ class Player(Sprite):
             frame.set_colorkey(BLACK)
             self.jumping_frames_right.append(frame)
 
-        # Loops throughout the running animation png (up and left) and appends a frame into a list
+        # Loops throughout the running animation png and appends a frame into a list
         # Calls list to get each image
         self.jumping_frames_left = []
         for i in range(6):
             frame = self.spritesheet_jump_left.get_image(0, i * 64, 64, 64)
             frame.set_colorkey(BLACK)
             self.jumping_frames_left.append(frame)
+        
+        # Loops throughout the running animation png and appends a frame into a list
+        # Calls list to get each image
+        self.crouching_frames_idle = []
+        for i in range(2):
+            frame = self.spritesheet_crouch_idle.get_image(0, i * 64, 64, 64)
+            frame.set_colorkey(BLACK)
+            self.crouching_frames_idle.append(frame)
+
+        # Loops throughout the running animation png and appends a frame into a list
+        # Calls list to get each image
+        self.crouching_frames_right = []
+        for i in range(4):
+            frame = self.spritesheet_crouch_right.get_image(0, i * 64, 64, 64)
+            frame.set_colorkey(BLACK)
+            self.crouching_frames_right.append(frame)
+        
+        # Loops throughout the running animation png and appends a frame into a list
+        # Calls list to get each image
+        self.crouching_frames_left = []
+        for i in range(4):
+            frame = self.spritesheet_crouch_left.get_image(0, i * 64, 64, 64)
+            frame.set_colorkey(BLACK)
+            self.crouching_frames_left.append(frame)
 
     # Creates the animations for the idle and running
     def animate(self):
@@ -117,7 +146,7 @@ class Player(Sprite):
                 self.rect.bottom = bottom
         # creates the running animation if the player is moving right
         # With time per frame
-        if self.running_right and not self.jumping:
+        if self.running_right and not self.jumping and not self.crouching:
             if now - self.last_update > 50:
                 self.last_update = now
                 self.current_frame = (self.current_frame + 1) % len(self.running_frames_right)
@@ -127,7 +156,7 @@ class Player(Sprite):
                 self.rect.bottom = bottom
         # creates the running animation if the player is moving left
         # With time per frame
-        if self.running_left and not self.jumping:
+        if self.running_left and not self.jumping and not self.crouching:
             if now - self.last_update > 50:
                 self.last_update = now
                 self.current_frame = (self.current_frame + 1) % len(self.running_frames_left)
@@ -135,7 +164,7 @@ class Player(Sprite):
                 self.image = self.running_frames_left[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
-        # creates the jumping animatoin if the player is moving left and is jumping
+        # creates the jumping animation if the player is moving left and is jumping
         # With time per frame
         if self.jumping and self.running_left:
             if now - self.last_update > 200:
@@ -145,7 +174,7 @@ class Player(Sprite):
                 self.image = self.jumping_frames_left[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
-        # creates the running animatoin if the player is moving right and jumping, or is just jumping
+        # creates the running animation if the player is moving right and jumping, or is just jumping
         # With time per frame
         if (self.jumping and self.running_right) or self.jumping:
             if now - self.last_update > 200:
@@ -155,7 +184,37 @@ class Player(Sprite):
                 self.image = self.jumping_frames_right[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
-    
+        # creates the running animation if the player is crouching and walking right
+        # With time per frame
+        if self.crouching and self.running_right:
+            if now - self.last_update > 200:
+                self.last_update = now
+                self.current_frame = (self.current_frame + 1) % len(self.crouching_frames_right)
+                bottom = self.rect.bottom
+                self.image = self.crouching_frames_right[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
+        # creates the running animation if the player is crouching and walking left
+        # With time per frame
+        if self.crouching and self.running_left:
+            if now - self.last_update > 200:
+                self.last_update = now
+                self.current_frame = (self.current_frame + 1) % len(self.crouching_frames_left)
+                bottom = self.rect.bottom
+                self.image = self.crouching_frames_left[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
+        # creates the running animation if the player is crouching and idle
+        # With time per frame
+        if self.crouching:
+            if now - self.last_update > 200:
+                self.last_update = now
+                self.current_frame = (self.current_frame + 1) % len(self.crouching_frames_idle)
+                bottom = self.rect.bottom
+                self.image = self.crouching_frames_idle[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
+        
     # def attack(self):
     #     if not self.attacking and self.weapon_cd.ready():
     #         self.weapon_cd.start()
@@ -195,7 +254,7 @@ class Player(Sprite):
     def crouch(self):
         # if crouching
         if self.crouching:
-            self.speed = 100
+            self.speed = 75
             print("crouching")
         # if not crouching
         else:
