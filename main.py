@@ -67,6 +67,8 @@ class Game:
                Wall(self, col, row, "unmoveable")
             if tile == '2':
                Wall(self, col, row, "moveable")
+            if tile == '3':
+               Wall(self, col, row, "searchable")
             elif tile == 'C':
                Coin(self, col, row)
             elif tile == 'P':

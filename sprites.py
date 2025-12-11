@@ -58,6 +58,7 @@ class Player(Sprite):
         self.attacking = False
         self.jumping = False
         self.crouching = False
+        self.searching = False
         
         self.current_frame = 0
         self.last_update = 0
@@ -134,6 +135,16 @@ class Player(Sprite):
     # Creates the animations for the idle and running
     def animate(self):
         now = pg.time.get_ticks()
+        # creates the running animation if the player is crouching and idle
+        # With time per frame
+        if self.crouching and not self.running_right and not self.running_left:
+            if now - self.last_update > 350:
+                self.last_update = now
+                self.current_frame = (self.current_frame + 1) % len(self.crouching_frames_idle)
+                bottom = self.rect.bottom
+                self.image = self.crouching_frames_idle[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
         # creates the running animation if the player is idle
         if not self.jumping and not self.walking:
             if now - self.last_update > 350:
@@ -204,16 +215,7 @@ class Player(Sprite):
                 self.image = self.crouching_frames_left[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
-        # creates the running animation if the player is crouching and idle
-        # With time per frame
-        if self.crouching:
-            if now - self.last_update > 200:
-                self.last_update = now
-                self.current_frame = (self.current_frame + 1) % len(self.crouching_frames_idle)
-                bottom = self.rect.bottom
-                self.image = self.crouching_frames_idle[self.current_frame]
-                self.rect = self.image.get_rect()
-                self.rect.bottom = bottom
+        
         
     # def attack(self):
     #     if not self.attacking and self.weapon_cd.ready():
@@ -232,7 +234,6 @@ class Player(Sprite):
         if keys[pg.K_p]:
             print(self.rect.x)
             p = Projectile(self.game, self.rect.x, self.rect.y, self.dir)
-
         # Identifies a to walk left
         if keys[pg.K_a]:
             self.vel.x = -self.speed*self.game.dt
@@ -246,6 +247,9 @@ class Player(Sprite):
         # Identifies space to jump
         if keys[pg.K_SPACE]:
             self.jumping = True
+        # Identifies e to search
+        if keys[pg.K_e]:
+            self.searching = True
         # accounting for diagonal
         if self.vel[0] != 0 and self.vel[1] != 0:
             self.vel *= 0.7071
@@ -277,7 +281,7 @@ class Player(Sprite):
                         #print("i hit a moveable block...")
                         hits[0].vel.x += self.vel.x
                         if len(hits) > 1:
-                            if hits[1].state == "unmoveable":
+                            if hits[1].state in ("unmoveable", "searchable"):
                                 self.pos.x = hits[1].rect.left - self.rect.width
                     else:
                         self.pos.x = hits[0].rect.left - self.rect.width
@@ -302,7 +306,7 @@ class Player(Sprite):
                         #print("i hit a moveable block...")
                         hits[0].vel.y += self.vel.y
                         if len(hits) > 1:
-                            if hits[1].state == "unmoveable":
+                            if hits[1].state in ("unmoveable", "searchable"):
                                 self.pos.y = hits[1].rect.top - self.rect.height
                     else:
                         self.pos.y = hits[0].rect.top - self.rect.height
@@ -311,7 +315,7 @@ class Player(Sprite):
                     if hits[0].state == "moveable":
                         hits[0].vel.y += self.vel.y
                         if len(hits) > 1:
-                            if hits[1].state == "unmovable":
+                            if hits[1].state in ("unmoveable", "searchable"):
                                 self.pos.y = hits[1].rect.bottom
                     else:
                         self.pos.y = hits[0].rect.bottom
@@ -467,7 +471,75 @@ class Coin(Sprite):
         self.rect.y = y *TILESIZE[1]
         # coin behavior
         pass
-    
+
+class Searchable(Sprite):
+    def __init__(self, game, x, y, state):
+        self.groups = game.all_sprites, game.all_searchable
+        Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = pg.Surface(TILESIZE)
+        self.image.fill(BLACK)
+        self.rect = self.image.get_rect()
+        self.vel = vec(0,0)
+        self.pos = vec(x,y) * TILESIZE[0]
+        self.state = state
+    def collide_with_searchable(self, dir):
+        if dir == 'x':
+            hits = pg.sprite.spritecollide(self, self.game.all_searchable, False)
+            # If collision
+            if hits:
+                # If the player is moving right
+                if self.vel.x > 0:
+                    if hits[0].state == "moveable":
+                        hits[0].pos.x += self.vel.x
+                        if len(hits) > 1:
+                            if hits[1].state in ("unmoveable", "searchable"):
+                                self.pos.x = hits[1].rect.left - self.rect.width
+                    else:
+                        self.pos.x = hits[0].rect.left - self.rect.width
+                # If the player is moving left
+                if self.vel.x < 0:
+                    if hits[0].state == "moveable":
+                        hits[0].pos.x += self.vel.x
+                        if len(hits) > 1:
+                            if hits[1].state in ("unmoveable", "searchable"):
+                                self.pos.x = hits[1].rect.right
+                    else:
+                        self.pos.x = hits[0].rect.right
+                self.vel.x = 0
+                self.rect.x = self.pos.x
+        if dir == 'y':
+            hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
+            if hits:
+                # If the player is moving down
+                if self.vel.y > 0:
+                    if hits[0].state == "moveable":
+                        hits[0].pos.y += self.vel.y
+                        if len(hits) > 1:
+                            if hits[1].state == "unmoveable":
+                                self.pos.y = hits[1].rect.top - self.rect.height
+                    else:
+                        self.pos.y = hits[0].rect.top - self.rect.height
+                # If the player is moving up
+                if self.vel.y < 0:
+                    if hits[0].state == "moveable":
+                        hits[0].pos.y += self.vel.y
+                        if len(hits) > 1:
+                            if hits[1].state == "unmovable":
+                                self.pos.y = hits[1].rect.bottom
+                    else:
+                        self.pos.y = hits[0].rect.bottom
+                self.vel.y = 0
+                self.rect.y = self.pos.y
+    def update(self):
+        # upadtes wall behavior
+        self.pos += self.vel
+        self.rect.x = self.pos.x
+        self.collide_with_searchable('x')
+        self.rect.y = self.pos.y
+        self.collide_with_searchable('y')
+
+    # Detects collisions with 
 # Class under parent class Sprite
 class Wall(Sprite):
     def __init__(self, game, x, y, state):
@@ -491,7 +563,7 @@ class Wall(Sprite):
                     if hits[0].state == "moveable":
                         hits[0].pos.x += self.vel.x
                         if len(hits) > 1:
-                            if hits[1].state == "unmoveable":
+                            if hits[1].state in ("unmoveable", "searchable"):
                                 self.pos.x = hits[1].rect.left - self.rect.width
                     else:
                         self.pos.x = hits[0].rect.left - self.rect.width
@@ -500,7 +572,7 @@ class Wall(Sprite):
                     if hits[0].state == "moveable":
                         hits[0].pos.x += self.vel.x
                         if len(hits) > 1:
-                            if hits[1].state == "unmoveable":
+                            if hits[1].state in ("unmoveable", "searchable"):
                                 self.pos.x = hits[1].rect.right
                     else:
                         self.pos.x = hits[0].rect.right
