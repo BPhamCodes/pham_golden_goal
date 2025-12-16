@@ -30,6 +30,11 @@ class Game:
       pg.display.set_caption("Escape!")
       self.playing = True
       self.running = True
+
+      # self.darkness enables transparceny with pg.SCRALPHA
+      self.darkness = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
+      self.vision_radius = 120  # change size of visible circle
+
    # sets up a game folder directory path using the current folder containing THIS file
    # give the Game class a map property which uses the Map class to parse the level1.txt file
    # loads image files from images folder
@@ -73,8 +78,8 @@ class Game:
                Coin(self, col, row)
             elif tile == 'P':
                self.player = Player(self, col, row)
-            #elif tile == 'M':
-               #Mob(self, col, row)
+            elif tile == 'M':
+               Mob(self, col, row)
    # Runs the program and calls the function
    def run(self):
       while self.playing == True:
@@ -108,10 +113,12 @@ class Game:
          # Calls crouch function in Player class
          if event.type == pg.KEYDOWN:
             if event.key == pg.K_LCTRL:
+               self.vision_radius = 70
                self.player.crouching = True
                self.player.crouch()
          if event.type == pg.KEYUP:
             if event.key == pg.K_LCTRL:
+               self.vision_radius = 120
                self.player.crouching = False
                self.player.crouch()
    # updates the game's sprites, time, coins
@@ -131,15 +138,36 @@ class Game:
         text_rect = text_surface.get_rect()
         text_rect.midtop = (x,y)
         surface.blit(text_surface, text_rect)
-   # Draws the text with the settings
+   # Draw darkness over the whole screen
+   def draw_darkness(self):
+      self.darkness.fill((0, 0, 0, 235))
+
+      px, py = self.player.rect.center
+
+      # Circle around player's x and y
+      pg.draw.circle(
+         self.darkness,
+         (0, 0, 0, 0),
+         (int(px), int(py)),
+         self.vision_radius
+      )
+
+      self.screen.blit(self.darkness, (0, 0))
+
+   # Draws the elements on the screen
    def draw(self):
       self.screen.fill(GREY)
-      #self.screen.blit(self.bg_img, (0, 0))
-      self.draw_text(self.screen, str(self.player.health), 24, BLACK, 100, 100)
-      self.draw_text(self.screen, str(self.player.coins), 24, BLACK, 400, 100)
-      self.draw_text(self.screen, str(self.time), 24, BLACK, 500, 100)
       self.all_sprites.draw(self.screen)
+      
+      # darkness over world
+      self.draw_darkness()
+
+      self.draw_text(self.screen, str(self.player.health), 24, WHITE, 100, 100)
+      self.draw_text(self.screen, str(self.player.coins), 24, WHITE, 400, 100)
+      self.draw_text(self.screen, str(self.time), 24, WHITE, 500, 100)
+
       pg.display.flip()
+
    def wait_for_key(self):
         waiting = True
         while waiting:
