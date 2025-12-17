@@ -16,7 +16,7 @@ from os import path
 vec = pg.math.Vector2
 
 # https://www.youtube.com/watch?v=ST-Qq3WBZBE: source to add jump
-# Used help from ChatGPT with jumping
+# Used help from ChatGPT with jumping and uncrouching method (debugging the hitboxes)
 
 # Class under parent class Sprite
 # Defines a new sprite that the player can control based off key inputs
@@ -65,6 +65,10 @@ class Player(Sprite):
 
         self.jump_height = 15
         self.y_velocity = self.jump_height
+        self.PLAYER_WIDTH = 43
+        self.PLAYER_STAND_HEIGHT = 64
+        self.PLAYER_CROUCH_HEIGHT = 43
+
 
     # loads images for the idle and running frames
     def load_images(self):
@@ -112,7 +116,7 @@ class Player(Sprite):
         # Calls list to get each image
         self.crouching_frames_idle = []
         for i in range(2):
-            frame = self.spritesheet_crouch_idle.get_image(0, i * 64, 64, 64)
+            frame = self.spritesheet_crouch_idle.get_image(0, i * 43, 43, 43)
             frame.set_colorkey(BLACK)
             self.crouching_frames_idle.append(frame)
 
@@ -120,7 +124,7 @@ class Player(Sprite):
         # Calls list to get each image
         self.crouching_frames_right = []
         for i in range(4):
-            frame = self.spritesheet_crouch_right.get_image(0, i * 64, 64, 64)
+            frame = self.spritesheet_crouch_right.get_image(0, i * 43, 43, 43)
             frame.set_colorkey(BLACK)
             self.crouching_frames_right.append(frame)
         
@@ -128,7 +132,7 @@ class Player(Sprite):
         # Calls list to get each image
         self.crouching_frames_left = []
         for i in range(4):
-            frame = self.spritesheet_crouch_left.get_image(0, i * 64, 64, 64)
+            frame = self.spritesheet_crouch_left.get_image(0, i * 43, 43, 43)
             frame.set_colorkey(BLACK)
             self.crouching_frames_left.append(frame)
 
@@ -215,14 +219,6 @@ class Player(Sprite):
                 self.image = self.crouching_frames_left[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
-        
-        
-    # def attack(self):
-    #     if not self.attacking and self.weapon_cd.ready():
-    #         self.weapon_cd.start()
-    #         self.attacking = True
-    #         print ("attacking")
-    #         self.weapon = Sword(self.game, self.rect.x, self.rect.y)
     
     # Identifies the keys the user inputs and moves the player accordingly
     def get_keys(self):
@@ -256,14 +252,32 @@ class Player(Sprite):
 
     # If player is crouching, then the speed is slower, or else, it remains the same
     def crouch(self):
-        # if crouching
         if self.crouching:
+            self.rect.height = self.PLAYER_CROUCH_HEIGHT
             self.speed = 75
-            print("crouching")
-        # if not crouching
-        else:
-            self.speed = 150
-            print("not crouching")
+            self.rect.bottom = self.pos.y
+            
+    # if not crouching
+    def try_uncrouch(self):
+        # Fake rect that mimics the hitbox of a standing player
+        test_rect = pg.Rect(
+            self.rect.x,
+            self.rect.bottom - self.PLAYER_STAND_HEIGHT,
+            self.PLAYER_WIDTH,
+            self.PLAYER_STAND_HEIGHT
+        )
+
+        # If there is not enough space on top for the player to uncrouch, stay crouched
+        for wall in self.game.all_walls:
+            if test_rect.colliderect(wall.rect):
+                return
+
+        # Safe to stand
+        self.crouching = False
+        self.rect.height = self.PLAYER_STAND_HEIGHT
+        self.rect.bottom = self.pos.y
+        self.speed = 150
+
 
     # Detects if the sprite collides with each other
     # Player collides with Wall
@@ -350,6 +364,7 @@ class Player(Sprite):
         self.y_velocity -= GRAVITY
 
         # Gravity + jumping
+        # Not a method to not allow for spam jumping in the air
         if self.jumping:
             # Move by current vertical velocity
             self.pos.y -= self.y_velocity
@@ -383,18 +398,6 @@ class Player(Sprite):
                 self.y_velocity = self.jump_height
             self.rect.y = self.pos.y
 
-        '''
-        if not self.cd.ready():
-            #self.image = self.game.player_img_inv
-            self.image = self.game.player_img
-            # self.rect = self.image_inv.get_rect()
-            print("not ready")
-        else:
-            # self.image.fill(GREEN)
-            self.image = self.game.player_img
-            # self.rect = self.image.get_rect()
-            print("ready")
-        '''
 # Created under parent class Sprite
 # Detects collisoins with walls
 class Mob(Sprite):
@@ -402,58 +405,54 @@ class Mob(Sprite):
         self.game = game
         self.groups = game.all_sprites, game.all_mobs
         Sprite.__init__(self, self.groups)
-        self.game = game
         self.image = pg.Surface((32, 32))
         self.image.fill(RED)
         self.rect = self.image.get_rect()
-        self.vel = vec(choice([-1,1]),choice([-1,1]))
-        self.pos = vec(x,y)*TILESIZE[0]
+        self.pos = vec(x, y) * TILESIZE[0]
+        self.vel = vec(0, 0)
         self.speed = 5
-        print(self.pos)
+        
+        # Gravity
+        self.y_velocity = 0  # vertical velocity
+
     def collide_with_walls(self, dir):
-        # If mob collides in the x direction (horizontal)
         if dir == 'x':
             hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
-            # If collision
             if hits:
-                # If the mob is moving right
                 if self.vel.x > 0:
                     self.pos.x = hits[0].rect.left - self.rect.width
-                # If the mob is moving left
-                if self.vel.x < 0:
+                elif self.vel.x < 0:
                     self.pos.x = hits[0].rect.right
                 self.rect.x = self.pos.x
-                self.vel.x *= choice([-1,1])
-        # If mob collides in the y direction (vertical)
+                # Reverse horizontal direction on collision
+                self.vel.x *= choice([-1, 1])
+        
         if dir == 'y':
             hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
-            # If collision
             if hits:
-                # If the mob is moving down
-                if self.vel.y > 0:
+                if self.y_velocity > 0:  # falling
                     self.pos.y = hits[0].rect.top - self.rect.height
-                # If the mob is moving up
-                if self.vel.y < 0:
+                    self.y_velocity = 0
+                elif self.y_velocity < 0:  # moving up
                     self.pos.y = hits[0].rect.bottom
+                    self.y_velocity = 0
                 self.rect.y = self.pos.y
-                self.vel.y *= choice([-1,1])
-    # updates the position of the mob to follow the x and y coordinates of the player's
-    # detects collisions with walls
+                # Optional: reverse horizontal direction when hitting wall vertically
+                # self.vel.x *= choice([-1, 1])
+    # mob behavior to chase the player and fall at the speed of gravity
     def update(self):
-        # mob behavior
+        # horizontal vector is not affected by gravity
         if self.game.player.pos.x > self.pos.x:
             self.vel.x = 1
         else:
             self.vel.x = -1
-            # print("I don't need to chase the player x")
-        if self.game.player.pos.y > self.pos.y:
-            self.vel.y = 1
-        else:
-            self.vel.y = -1
-            # print("I don't need to chase the player x")
-        self.pos += self.vel * self.speed
+
+        self.pos.x += self.vel.x * self.speed
         self.rect.x = self.pos.x
         self.collide_with_walls('x')
+
+        self.y_velocity += GRAVITY
+        self.pos.y += self.y_velocity
         self.rect.y = self.pos.y
         self.collide_with_walls('y')
 

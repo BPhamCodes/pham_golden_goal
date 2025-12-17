@@ -2,9 +2,9 @@
 
 # Constant variables
 # using a tuple to define the tile size
-TILESIZE = (32, 32)
-TILES_W = 32
-TILES_H = 24
+TILESIZE = (43, 43)
+TILES_W = 30
+TILES_H = 20
 WIDTH = TILESIZE[0]*TILES_W
 HEIGHT = TILESIZE[1]*TILES_H
 GREEN = (0, 50, 0)

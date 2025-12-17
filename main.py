@@ -60,7 +60,7 @@ class Game:
       self.all_coins = pg.sprite.Group()
       self.all_walls = pg.sprite.Group()
       self.all_projectiles = pg.sprite.Group()
-      self.all_swords = pg.sprite.Group()
+      self.all_swords = pg.sprite.Group() 
       self.all_moveable_balls = pg.sprite.Group()
       # places the sprite based off the tilemap
       #self.sword = Sword(self, 0,0)
@@ -119,8 +119,7 @@ class Game:
          if event.type == pg.KEYUP:
             if event.key == pg.K_LCTRL:
                self.vision_radius = 120
-               self.player.crouching = False
-               self.player.crouch()
+               self.player.try_uncrouch()
    # updates the game's sprites, time, coins
    def update(self):
       self.all_sprites.update()
@@ -158,7 +157,7 @@ class Game:
    def draw(self):
       self.screen.fill(GREY)
       self.all_sprites.draw(self.screen)
-      
+
       # darkness over world
       self.draw_darkness()
 
