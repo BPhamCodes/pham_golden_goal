@@ -43,43 +43,56 @@ class Game:
       self.img_folder = path.join(self.game_folder, 'images')
       self.map = Map(path.join(self.game_folder, 'level1.txt'))
       # loads image into memory when a new game is created and load_data is called
-      self.ball_img = pg.image.load(path.join(self.img_folder, 'soccerball.png')).convert_alpha()
-     # self.player_img_inv = pg.image.load(path.join(self.img_folder, 'the_bell_16x16.png')).convert_alpha()
-     
+      self.tile_img = pg.image.load(path.join(self.img_folder, 'tiles.png')).convert_alpha()
      # self.bg_img = pg.image.load(path.join(self.img_folder, 'grass_bg.png')).convert_alpha()
      # self.bg_img = pg.transform.scale(self.bg_img, (WIDTH, HEIGHT))
 
    # Defines new data and sprite groups
    # inputs the sprites based off the tilemap
    def new(self):
-      # the sprite Group allows us to upate anwd draw sprite in grouped batches
-      self.load_data()
-      # create all sprite groups
-      self.all_sprites = pg.sprite.Group()
-      self.all_mobs = pg.sprite.Group()
-      self.all_coins = pg.sprite.Group()
-      self.all_walls = pg.sprite.Group()
-      self.all_projectiles = pg.sprite.Group()
-      self.all_swords = pg.sprite.Group() 
-      self.all_moveable_balls = pg.sprite.Group()
-      # places the sprite based off the tilemap
-      #self.sword = Sword(self, 0,0)
-      for row, tiles, in enumerate(self.map.data):
-         # print(row)
-         for col, tile, in enumerate(tiles):
+    # the sprite Group allows us to upate anwd draw sprite in grouped batches
+    self.load_data()
+    # create all sprite groups
+    self.all_sprites = pg.sprite.Group()
+    self.all_mobs = pg.sprite.Group()
+    self.all_coins = pg.sprite.Group()
+    self.all_walls = pg.sprite.Group()
+    self.all_projectiles = pg.sprite.Group()
+    self.all_swords = pg.sprite.Group() 
+    self.all_moveable_balls = pg.sprite.Group()
+    self.all_searchables = pg.sprite.Group()
+    self.floor_tiles = []
+    self.mob_count = 0  # counter for alternating mob direction
+
+    # places the sprite based off the tilemap
+    #self.sword = Sword(self, 0,0)
+    for row, tiles, in enumerate(self.map.data):
+        # print(row)
+        for col, tile, in enumerate(tiles):
             # print(col)
             if tile == '1':
-               Wall(self, col, row, "unmoveable")
+                Wall(self, col, row, "unmoveable")
             if tile == '2':
-               Wall(self, col, row, "moveable")
+                Wall(self, col, row, "moveable")
             if tile == '3':
-               Wall(self, col, row, "searchable")
+                Wall(self, col, row, "searchable")
+            if tile == '.':
+                self.floor_tiles.append((col, row))
             elif tile == 'C':
-               Coin(self, col, row)
+                Coin(self, col, row)
             elif tile == 'P':
-               self.player = Player(self, col, row)
+                self.player = Player(self, col, row)
             elif tile == 'M':
-               Mob(self, col, row)
+                mob = Mob(self, col, row)
+                # Alternate initial direction
+                if self.mob_count % 2 == 0:
+                    mob.direction = 1   # move right
+                else:
+                    mob.direction = -1  # move left
+                self.mob_count += 1
+            # keep appending floor tiles as before
+            self.floor_tiles.append((col, row))
+
    # Runs the program and calls the function
    def run(self):
       while self.playing == True:
@@ -156,9 +169,17 @@ class Game:
    # Draws the elements on the screen
    def draw(self):
       self.screen.fill(GREY)
+
+      # draw floor tiles
+      for col, row in self.floor_tiles:
+         self.screen.blit(self.tile_img,(col * TILESIZE[0], row * TILESIZE[1]))
+
       self.all_sprites.draw(self.screen)
 
-      # darkness over world
+      # draw mob vision triangles on top of sprites
+      for mob in self.all_mobs:
+         mob.draw_vision(self.screen)
+
       self.draw_darkness()
 
       self.draw_text(self.screen, str(self.player.health), 24, WHITE, 100, 100)
@@ -166,6 +187,7 @@ class Game:
       self.draw_text(self.screen, str(self.time), 24, WHITE, 500, 100)
 
       pg.display.flip()
+
 
    def wait_for_key(self):
         waiting = True

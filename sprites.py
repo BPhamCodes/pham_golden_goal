@@ -20,7 +20,7 @@ vec = pg.math.Vector2
 
 # Class under parent class Sprite
 # Defines a new sprite that the player can control based off key inputs
-# Collisions will be detected (walls, coins, and ball(s))
+# Collisions will be detected (walls and coins)
 class Player(Sprite):
     def __init__(self, game, x, y):
         self.groups = game.all_sprites
@@ -63,12 +63,11 @@ class Player(Sprite):
         self.current_frame = 0
         self.last_update = 0
 
-        self.jump_height = 15
+        self.jump_height = 20
         self.y_velocity = self.jump_height
         self.PLAYER_WIDTH = 43
         self.PLAYER_STAND_HEIGHT = 64
         self.PLAYER_CROUCH_HEIGHT = 43
-
 
     # loads images for the idle and running frames
     def load_images(self):
@@ -226,10 +225,7 @@ class Player(Sprite):
         keys = pg.key.get_pressed()
         self.running_right = False
         self.running_left = False
-        # Shoots projectiles using the Player's x, y, and direction
-        if keys[pg.K_p]:
-            print(self.rect.x)
-            p = Projectile(self.game, self.rect.x, self.rect.y, self.dir)
+        
         # Identifies a to walk left
         if keys[pg.K_a]:
             self.vel.x = -self.speed*self.game.dt
@@ -398,36 +394,49 @@ class Player(Sprite):
                 self.y_velocity = self.jump_height
             self.rect.y = self.pos.y
 
+
 # Created under parent class Sprite
-# Detects collisoins with walls
+# Detects collisions with walls
 class Mob(Sprite):
-    def __init__(self, game, x, y):
+    def __init__(self, game, x, y, patrol_dist=200):
         self.game = game
         self.groups = game.all_sprites, game.all_mobs
         Sprite.__init__(self, self.groups)
+
         self.image = pg.Surface((32, 32))
         self.image.fill(RED)
         self.rect = self.image.get_rect()
+
         self.pos = vec(x, y) * TILESIZE[0]
-        self.vel = vec(0, 0)
-        self.speed = 5
-        
+        self.rect.topleft = self.pos
+
+        # Patrol (A to B Path Finding)
+        self.start_x = self.pos.x
+        self.end_x = self.pos.x + patrol_dist
+        self.direction = 1   # 1 = right, -1 = left
+        self.speed = 2
+
         # Gravity
         self.y_velocity = 0  # vertical velocity
 
+        # Vision
+        self.vision_length = 150
+        self.vision_angle = 40  # degrees
+
+    # Collision detection with walls
     def collide_with_walls(self, dir):
         if dir == 'x':
             hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
             if hits:
-                if self.vel.x > 0:
+                if self.direction > 0:  # moving right
                     self.pos.x = hits[0].rect.left - self.rect.width
-                elif self.vel.x < 0:
+                elif self.direction < 0:  # moving left
                     self.pos.x = hits[0].rect.right
                 self.rect.x = self.pos.x
-                # Reverse horizontal direction on collision
-                self.vel.x *= choice([-1, 1])
-        
-        if dir == 'y':
+                # Reverse direction on collision
+                self.direction *= -1
+
+        elif dir == 'y':
             hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
             if hits:
                 if self.y_velocity > 0:  # falling
@@ -437,24 +446,55 @@ class Mob(Sprite):
                     self.pos.y = hits[0].rect.bottom
                     self.y_velocity = 0
                 self.rect.y = self.pos.y
-                # Optional: reverse horizontal direction when hitting wall vertically
-                # self.vel.x *= choice([-1, 1])
-    # mob behavior to chase the player and fall at the speed of gravity
-    def update(self):
-        # horizontal vector is not affected by gravity
-        if self.game.player.pos.x > self.pos.x:
-            self.vel.x = 1
-        else:
-            self.vel.x = -1
 
-        self.pos.x += self.vel.x * self.speed
+    # Patrol behavior and gravity
+    def update(self):
+        # Patrol horizontally
+        self.pos.x += self.direction * self.speed
         self.rect.x = self.pos.x
         self.collide_with_walls('x')
 
+        # Gravity
         self.y_velocity += GRAVITY
         self.pos.y += self.y_velocity
         self.rect.y = self.pos.y
         self.collide_with_walls('y')
+
+        # Reverse direction at patrol edges
+        if self.pos.x >= self.end_x:
+            self.direction = -1
+        elif self.pos.x <= self.start_x:
+            self.direction = 1
+
+        # Optional: check if mob can see player
+        if self.can_see_player():
+            print("PLAYER SPOTTED")
+
+    # Check if player is inside mob's vision
+    def can_see_player(self):
+        self.player_vec = vec(self.game.player.rect.center) - vec(self.rect.center)
+        self.distance = self.player_vec.length()
+        if self.distance > self.vision_length:
+            return False
+        self.facing = vec(self.direction, 0)
+        if self.facing.length() == 0:
+            return False
+        self.angle = self.facing.angle_to(self.player_vec)
+        return abs(self.angle) < self.vision_angle / 2
+
+    # Draw vision triangle (flashlight)
+    def draw_vision(self, surface):
+        self.temp_surf = pg.Surface((surface.get_width(), surface.get_height()), pg.SRCALPHA)
+        self.start = vec(self.rect.center)
+        self.facing = vec(self.direction or 1, 0).normalize()
+        self.left_dir = self.facing.rotate(self.vision_angle / 2)
+        self.right_dir = self.facing.rotate(-self.vision_angle / 2)
+        self.points = [self.start, self.start + self.left_dir * self.vision_length, self.start + self.right_dir * self.vision_length]
+        self.points = [(int(p.x), int(p.y)) for p in self.points]
+        pg.draw.polygon(self.temp_surf, (255, 255, 0, 75), self.points)
+        surface.blit(self.temp_surf, (0, 0))
+
+
 
 # Class under parent class Sprite
 # Just defines a sprite that is yellow
@@ -471,74 +511,8 @@ class Coin(Sprite):
         # coin behavior
         pass
 
-class Searchable(Sprite):
-    def __init__(self, game, x, y, state):
-        self.groups = game.all_sprites, game.all_searchable
-        Sprite.__init__(self, self.groups)
-        self.game = game
-        self.image = pg.Surface(TILESIZE)
-        self.image.fill(BLACK)
-        self.rect = self.image.get_rect()
-        self.vel = vec(0,0)
-        self.pos = vec(x,y) * TILESIZE[0]
-        self.state = state
-    def collide_with_searchable(self, dir):
-        if dir == 'x':
-            hits = pg.sprite.spritecollide(self, self.game.all_searchable, False)
-            # If collision
-            if hits:
-                # If the player is moving right
-                if self.vel.x > 0:
-                    if hits[0].state == "moveable":
-                        hits[0].pos.x += self.vel.x
-                        if len(hits) > 1:
-                            if hits[1].state in ("unmoveable", "searchable"):
-                                self.pos.x = hits[1].rect.left - self.rect.width
-                    else:
-                        self.pos.x = hits[0].rect.left - self.rect.width
-                # If the player is moving left
-                if self.vel.x < 0:
-                    if hits[0].state == "moveable":
-                        hits[0].pos.x += self.vel.x
-                        if len(hits) > 1:
-                            if hits[1].state in ("unmoveable", "searchable"):
-                                self.pos.x = hits[1].rect.right
-                    else:
-                        self.pos.x = hits[0].rect.right
-                self.vel.x = 0
-                self.rect.x = self.pos.x
-        if dir == 'y':
-            hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
-            if hits:
-                # If the player is moving down
-                if self.vel.y > 0:
-                    if hits[0].state == "moveable":
-                        hits[0].pos.y += self.vel.y
-                        if len(hits) > 1:
-                            if hits[1].state == "unmoveable":
-                                self.pos.y = hits[1].rect.top - self.rect.height
-                    else:
-                        self.pos.y = hits[0].rect.top - self.rect.height
-                # If the player is moving up
-                if self.vel.y < 0:
-                    if hits[0].state == "moveable":
-                        hits[0].pos.y += self.vel.y
-                        if len(hits) > 1:
-                            if hits[1].state == "unmovable":
-                                self.pos.y = hits[1].rect.bottom
-                    else:
-                        self.pos.y = hits[0].rect.bottom
-                self.vel.y = 0
-                self.rect.y = self.pos.y
-    def update(self):
-        # upadtes wall behavior
-        self.pos += self.vel
-        self.rect.x = self.pos.x
-        self.collide_with_searchable('x')
-        self.rect.y = self.pos.y
-        self.collide_with_searchable('y')
 
-    # Detects collisions with 
+# Detects collisions with 
 # Class under parent class Sprite
 class Wall(Sprite):
     def __init__(self, game, x, y, state):
@@ -606,46 +580,4 @@ class Wall(Sprite):
         self.rect.x = self.pos.x
         self.collide_with_walls('x')
         self.rect.y = self.pos.y
-        self.collide_with_walls('y')
-
-# Creates a sprite to have the same coordinates/position of the player
-class Sword(Sprite):
-    def __init__(self, game, x, y):
-        self.game = game
-        self.groups = game.all_sprites, game.all_swords
-        Sprite.__init__(self, self.groups)
-        self.image = pg.Surface(TILESIZE)
-        self.image.fill(WHITE)
-        self.rect = self.image.get_rect()
-        self.rect.x = x * TILESIZE[0]
-        self.rect.y = y * TILESIZE[1]
-    # Sword tracks the player's rect position
-    def update(self):
-        self.rect.x = self.game.player.rect.x
-        self.rect.y = self.game.player.rect.y
-
-# Class under parent class Sprite
-class Projectile(Sprite):
-    def __init__(self, game, x, y, dir):
-        self.game = game
-        self.groups = game.all_sprites, game.all_projectiles
-        Sprite.__init__(self, self.groups)
-        self.game = game
-        self.image = pg.Surface((16, 16))
-        self.image.fill(RED)
-        self.rect = self.image.get_rect()
-        self.vel = dir
-        self.pos = vec(x,y)
-        self.rect.x = x
-        self.rect.y = y
-        self.speed = 10
-    # updates the Projectile velocity and direction
-    def update(self):
-        self.pos += self.vel * self.speed
-        self.rect.x = self.pos.x
-        self.rect.y = self.pos.y
-        hits = pg.sprite.spritecollide(self, self.game.all_walls, True)
-        # if collision, then destroy the wall
-        if hits:
-            self.kill()
-        
+        self.collide_with_walls('y')        
