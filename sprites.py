@@ -13,10 +13,11 @@ from utils import Spritesheet
 from random import randint
 from random import choice
 from os import path
+import math
 vec = pg.math.Vector2
 
 # https://www.youtube.com/watch?v=ST-Qq3WBZBE: source to add jump
-# Used help from ChatGPT with jumping and uncrouching method (debugging the hitboxes)
+# Used help from ChatGPT with uncrouching method (debugging the hitboxes) and can_see_player() method in Mob class
 
 # Class under parent class Sprite
 # Defines a new sprite that the player can control based off key inputs
@@ -62,12 +63,19 @@ class Player(Sprite):
         
         self.current_frame = 0
         self.last_update = 0
+        
+        self.flash_duration = 500   # milliseconds
+        self.last_damage_time = 0
+
 
         self.jump_height = 20
         self.y_velocity = self.jump_height
         self.PLAYER_WIDTH = 43
         self.PLAYER_STAND_HEIGHT = 64
         self.PLAYER_CROUCH_HEIGHT = 43
+        self.PLAYER_STAND_WIDTH = 64
+
+        self.inventory = []
 
     # loads images for the idle and running frames
     def load_images(self):
@@ -140,24 +148,34 @@ class Player(Sprite):
         now = pg.time.get_ticks()
         # creates the running animation if the player is crouching and idle
         # With time per frame
-        if self.crouching and not self.running_right and not self.running_left:
-            if now - self.last_update > 350:
+        if self.crouching and not self.running_right and not self.running_left and not self.jumping:
+            if now - self.last_update > 250:
                 self.last_update = now
                 self.current_frame = (self.current_frame + 1) % len(self.crouching_frames_idle)
                 bottom = self.rect.bottom
                 self.image = self.crouching_frames_idle[self.current_frame]
+
+                left = self.rect.left
+                bottom = self.rect.bottom
                 self.rect = self.image.get_rect()
+                self.rect.left = left
                 self.rect.bottom = bottom
+
         # creates the running animation if the player is idle
         if not self.jumping and not self.walking:
-            if now - self.last_update > 350:
+            if now - self.last_update > 250:
                 # print(now)
                 self.last_update = now
                 self.current_frame = (self.current_frame + 1) % len(self.standing_frames)
                 bottom = self.rect.bottom
                 self.image = self.standing_frames[self.current_frame]
+                
+                left = self.rect.left
+                bottom = self.rect.bottom
                 self.rect = self.image.get_rect()
+                self.rect.left = left
                 self.rect.bottom = bottom
+
         # creates the running animation if the player is moving right
         # With time per frame
         if self.running_right and not self.jumping and not self.crouching:
@@ -166,7 +184,11 @@ class Player(Sprite):
                 self.current_frame = (self.current_frame + 1) % len(self.running_frames_right)
                 bottom = self.rect.bottom
                 self.image = self.running_frames_right[self.current_frame]
+                
+                left = self.rect.left
+                bottom = self.rect.bottom
                 self.rect = self.image.get_rect()
+                self.rect.left = left
                 self.rect.bottom = bottom
         # creates the running animation if the player is moving left
         # With time per frame
@@ -176,7 +198,11 @@ class Player(Sprite):
                 self.current_frame = (self.current_frame + 1) % len(self.running_frames_left)
                 bottom = self.rect.bottom
                 self.image = self.running_frames_left[self.current_frame]
+                
+                left = self.rect.left
+                bottom = self.rect.bottom
                 self.rect = self.image.get_rect()
+                self.rect.left = left
                 self.rect.bottom = bottom
         # creates the jumping animation if the player is moving left and is jumping
         # With time per frame
@@ -186,17 +212,25 @@ class Player(Sprite):
                 self.current_frame = (self.current_frame + 1) % len(self.jumping_frames_left)
                 bottom = self.rect.bottom
                 self.image = self.jumping_frames_left[self.current_frame]
+                
+                left = self.rect.left
+                bottom = self.rect.bottom
                 self.rect = self.image.get_rect()
+                self.rect.left = left
                 self.rect.bottom = bottom
         # creates the running animation if the player is moving right and jumping, or is just jumping
         # With time per frame
-        if (self.jumping and self.running_right) or self.jumping:
+        if ((self.jumping and self.running_right) or self.jumping):
             if now - self.last_update > 200:
                 self.last_update = now
                 self.current_frame = (self.current_frame + 1) % len(self.jumping_frames_right)
                 bottom = self.rect.bottom
                 self.image = self.jumping_frames_right[self.current_frame]
+                
+                left = self.rect.left
+                bottom = self.rect.bottom
                 self.rect = self.image.get_rect()
+                self.rect.left = left
                 self.rect.bottom = bottom
         # creates the running animation if the player is crouching and walking right
         # With time per frame
@@ -206,7 +240,11 @@ class Player(Sprite):
                 self.current_frame = (self.current_frame + 1) % len(self.crouching_frames_right)
                 bottom = self.rect.bottom
                 self.image = self.crouching_frames_right[self.current_frame]
+                
+                left = self.rect.left
+                bottom = self.rect.bottom
                 self.rect = self.image.get_rect()
+                self.rect.left = left
                 self.rect.bottom = bottom
         # creates the running animation if the player is crouching and walking left
         # With time per frame
@@ -216,7 +254,11 @@ class Player(Sprite):
                 self.current_frame = (self.current_frame + 1) % len(self.crouching_frames_left)
                 bottom = self.rect.bottom
                 self.image = self.crouching_frames_left[self.current_frame]
+                
+                left = self.rect.left
+                bottom = self.rect.bottom
                 self.rect = self.image.get_rect()
+                self.rect.left = left
                 self.rect.bottom = bottom
     
     # Identifies the keys the user inputs and moves the player accordingly
@@ -238,7 +280,8 @@ class Player(Sprite):
             self.running_right = True
         # Identifies space to jump
         if keys[pg.K_SPACE]:
-            self.jumping = True
+            if not self.crouching and self.can_uncrouch():
+                self.jumping = True
         # Identifies e to search
         if keys[pg.K_e]:
             self.searching = True
@@ -248,32 +291,39 @@ class Player(Sprite):
 
     # If player is crouching, then the speed is slower, or else, it remains the same
     def crouch(self):
-        if self.crouching:
-            self.rect.height = self.PLAYER_CROUCH_HEIGHT
-            self.speed = 75
-            self.rect.bottom = self.pos.y
-            
+        if self.jumping:
+            return
+        self.rect.height = self.PLAYER_CROUCH_HEIGHT
+        bottom = self.rect.bottom
+        self.rect.bottom = bottom  # restore feet
+        self.speed = 75
+ 
     # if not crouching
     def try_uncrouch(self):
         # Fake rect that mimics the hitbox of a standing player
-        test_rect = pg.Rect(
-            self.rect.x,
-            self.rect.bottom - self.PLAYER_STAND_HEIGHT,
-            self.PLAYER_WIDTH,
-            self.PLAYER_STAND_HEIGHT
-        )
+        test_rect = pg.Rect(self.rect.x, self.rect.bottom - self.PLAYER_STAND_HEIGHT, self.PLAYER_STAND_WIDTH, self.PLAYER_STAND_HEIGHT)
 
-        # If there is not enough space on top for the player to uncrouch, stay crouched
         for wall in self.game.all_walls:
             if test_rect.colliderect(wall.rect):
                 return
 
         # Safe to stand
+        bottom = self.rect.bottom
         self.crouching = False
         self.rect.height = self.PLAYER_STAND_HEIGHT
-        self.rect.bottom = self.pos.y
+        self.rect.bottom = bottom
         self.speed = 150
 
+    def can_uncrouch(self):
+        test_rect = pg.Rect(self.rect.x, self.rect.bottom - self.PLAYER_STAND_HEIGHT, self.PLAYER_STAND_WIDTH, self.PLAYER_STAND_HEIGHT)
+
+        for wall in self.game.all_walls:
+            if test_rect.colliderect(wall.rect):
+                return False
+        return True
+
+    def has_screwdriver(self):
+        return any(getattr(item, 'name', '') == 'screwdriver' for item in self.inventory)
 
     # Detects if the sprite collides with each other
     # Player collides with Wall
@@ -281,71 +331,101 @@ class Player(Sprite):
         # Detects collisions in the x direction (horizontally)
         if dir == 'x':
             hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
-            # if the player collides
             if hits:
-                # print(self.pos)
-                # Detects for moveable and unmoveable blocks
-                # if the player is moving right
-                if self.vel.x > 0:
-                    if hits[0].state == "moveable":
-                        #print("i hit a moveable block...")
-                        hits[0].vel.x += self.vel.x
-                        if len(hits) > 1:
-                            if hits[1].state in ("unmoveable", "searchable"):
-                                self.pos.x = hits[1].rect.left - self.rect.width
-                    else:
-                        self.pos.x = hits[0].rect.left - self.rect.width
-                # Detects for moveable and unmoveable blocks
-                # If the object is moving left
-                if self.vel.x < 0:
-                    if hits[0].state == "moveable":
-                        #print("i hit a moveable block...")
-                        hits[0].vel.x += self.vel.x
-                    else:
-                        self.pos.x = hits[0].rect.right
-                # Sets the player to not move and updates the position
+                for hit in hits:
+                    # Destroy vent if player has screwdriver AND is crouching
+                    if hit.state == "vent" and self.has_screwdriver() and self.crouching:
+                        hit.kill()
+                        continue  # skip further collision processing for this vent
+
+                    # Existing collision logic
+                    if self.vel.x > 0:  # moving right
+                        if hit.state == "moveable":
+                            hit.vel.x += self.vel.x
+                        else:
+                            self.pos.x = hit.rect.left - self.rect.width
+                    if self.vel.x < 0:  # moving left
+                        if hit.state == "moveable":
+                            hit.vel.x += self.vel.x
+                        else:
+                            self.pos.x = hit.rect.right
                 self.vel.x = 0
                 self.rect.x = self.pos.x
+
         # Detects collisions in the y direction (vertically)
         if dir == 'y':
             hits = pg.sprite.spritecollide(self, self.game.all_walls, False)
             if hits:
-                # If the direction is moving down
-                if self.vel.y > 0:
-                    if hits[0].state == "moveable":
-                        #print("i hit a moveable block...")
-                        hits[0].vel.y += self.vel.y
-                        if len(hits) > 1:
-                            if hits[1].state in ("unmoveable", "searchable"):
-                                self.pos.y = hits[1].rect.top - self.rect.height
-                    else:
-                        self.pos.y = hits[0].rect.top - self.rect.height
-                # If the direction is moving up
-                if self.vel.y < 0:
-                    if hits[0].state == "moveable":
-                        hits[0].vel.y += self.vel.y
-                        if len(hits) > 1:
-                            if hits[1].state in ("unmoveable", "searchable"):
-                                self.pos.y = hits[1].rect.bottom
-                    else:
-                        self.pos.y = hits[0].rect.bottom
+                for hit in hits:
+                    # Destroy vent if player has screwdriver AND is crouching
+                    if hit.state == "vent" and self.has_screwdriver() and self.crouching:
+                        hit.kill()
+                        continue  # skip further collision processing for this vent
+
+                    # Existing collision logic
+                    if self.vel.y > 0:  # moving down
+                        if hit.state == "moveable":
+                            hit.vel.y += self.vel.y
+                        else:
+                            self.pos.y = hit.rect.top - self.rect.height
+                    if self.vel.y < 0:  # moving up
+                        if hit.state == "moveable":
+                            hit.vel.y += self.vel.y
+                        else:
+                            self.pos.y = hit.rect.bottom
                 self.vel.y = 0
                 self.rect.y = self.pos.y
-    
+
+
     # Detects if it collides with other sprites than walls like mob and coin
     # Terminates the sprite once the player collides with it
     def collide_with_stuff(self, group, kill):
         hits = pg.sprite.spritecollide(self, group, kill)
-        if hits: 
-            # Removes player health and starts a cooldown
-            if str(hits[0].__class__.__name__) == "Mob":
-                if self.cd.ready():
-                    self.health -= 10
-                    self.cd.start()
-            # Adds coin
-            if str(hits[0].__class__.__name__) == "Coin":
-                self.coins += 1
-                print(self.coins)
+        if hits:
+            if isinstance(hits[0], Screwdriver):
+                self.inventory.append(hits[0])
+
+
+    # Adds a health bar using the percentage of the player's current health from the original
+    def draw_health_bar(self, surface):
+        # Position and size
+        bar_width = 200
+        bar_height = 20
+        x = 50  # left margin
+        y = 50  # top margin
+        # Calculate health percentage
+        health_percent = max(self.health / 100, 0)
+        # Background (grey)
+        bg_rect = pg.Rect(x, y, bar_width, bar_height)
+        pg.draw.rect(surface, DARK_GREY, bg_rect)
+        # Health fill (green)
+        fg_rect = pg.Rect(x, y, bar_width * health_percent, bar_height)
+        now = pg.time.get_ticks()
+        # Flash red if within 500ms after taking damage
+        if now - self.last_damage_time <= self.flash_duration:
+            color = RED
+        # Stay green for every other instance
+        else:
+            color = GREEN
+        pg.draw.rect(surface, color, fg_rect)
+        # Optional: border
+        pg.draw.rect(surface, WHITE, bg_rect, 2)
+
+    # draws inventory at tjhe bottom of the screen
+    def draw_inventory(self, surface):
+        self.icon_size = 64
+        self.padding = 10
+
+        start_x = self.padding
+        y = surface.get_height() - self.icon_size - self.padding
+
+        # enumerates through inventory and displays anything on the bottom left of the screen
+        for i, item in enumerate(self.inventory):
+            icon = pg.transform.scale(item.inventory_image, (self.icon_size, self.icon_size))
+            x = start_x + i * (self.icon_size + self.padding)
+            surface.blit(icon, (x, y))
+
+
     # Updates player behavior, animation, and detection for collisions
     def update(self):
         self.get_keys()
@@ -356,8 +436,14 @@ class Player(Sprite):
         self.rect.y = self.pos.y
         self.collide_with_walls('y')
         self.collide_with_stuff(self.game.all_mobs, False)
-        self.collide_with_stuff(self.game.all_coins, True)
+        self.collide_with_stuff(self.game.all_items, True)
         self.y_velocity -= GRAVITY
+        # HARD SAFETY: prevent jumping if crouched with no headroom
+        if self.jumping and self.crouching and not self.can_uncrouch():
+            self.jumping = False
+        keys = pg.key.get_pressed()
+        if self.crouching and not keys[pg.K_LCTRL] and self.can_uncrouch():
+            self.try_uncrouch()
 
         # Gravity + jumping
         # Not a method to not allow for spam jumping in the air
@@ -398,12 +484,12 @@ class Player(Sprite):
 # Created under parent class Sprite
 # Detects collisions with walls
 class Mob(Sprite):
-    def __init__(self, game, x, y, patrol_dist=200):
+    def __init__(self, game, x, y, patrol_dist=250):
         self.game = game
         self.groups = game.all_sprites, game.all_mobs
         Sprite.__init__(self, self.groups)
 
-        self.image = pg.Surface((32, 32))
+        self.image = pg.Surface((64, 64))
         self.image.fill(RED)
         self.rect = self.image.get_rect()
 
@@ -423,6 +509,7 @@ class Mob(Sprite):
         self.vision_length = 150
         self.vision_angle = 40  # degrees
 
+        self.damage_cd = Cooldown(1000)
     # Collision detection with walls
     def collide_with_walls(self, dir):
         if dir == 'x':
@@ -466,21 +553,40 @@ class Mob(Sprite):
         elif self.pos.x <= self.start_x:
             self.direction = 1
 
-        # Optional: check if mob can see player
+        # check if mob can see player
         if self.can_see_player():
-            print("PLAYER SPOTTED")
+            if self.damage_cd.ready():
+                print("PLAYER SPOTTED")
+                self.game.player.health -= 20
+                self.game.player.last_damage_time = pg.time.get_ticks()
+                self.damage_cd.start()
 
-    # Check if player is inside mob's vision
     def can_see_player(self):
-        self.player_vec = vec(self.game.player.rect.center) - vec(self.rect.center)
-        self.distance = self.player_vec.length()
-        if self.distance > self.vision_length:
+        # Vector from mob to player
+        self.to_player = vec(self.game.player.rect.center) - vec(self.rect.center)
+        self.distance = self.to_player.length()
+
+        # If the player is too far away from the mob's visibility
+        if self.distance == 0 or self.distance > self.vision_length:
             return False
+
+        # Finds direction, not distance
+        self.to_player.normalize_ip()
+
+        # Mob facing direction
         self.facing = vec(self.direction, 0)
         if self.facing.length() == 0:
-            return False
-        self.angle = self.facing.angle_to(self.player_vec)
-        return abs(self.angle) < self.vision_angle / 2
+            # default facing right
+            self.facing = vec(1, 0)
+        self.facing.normalize_ip()
+
+        # Dot product gives cosine of angle between vectors
+        self.dot = self.facing.dot(self.to_player)
+
+        # Convert vision angle to cosine threshold
+        self.vision_cos = math.cos(math.radians(self.vision_angle / 2))
+
+        return self.dot >= self.vision_cos
 
     # Draw vision triangle (flashlight)
     def draw_vision(self, surface):
@@ -495,21 +601,55 @@ class Mob(Sprite):
         surface.blit(self.temp_surf, (0, 0))
 
 
-
 # Class under parent class Sprite
-# Just defines a sprite that is yellow
-class Coin(Sprite):
+# Defines a collectible screwdriver item
+class Screwdriver(Sprite):
     def __init__(self, game, x, y):
         self.game = game
-        self.groups = game.all_sprites, game.all_coins
+        self.groups = game.all_sprites, game.all_items
         Sprite.__init__(self, self.groups)
-        self.image = pg.Surface(TILESIZE)
-        self.image.fill(YELLOW)
+        self.name = "screwdriver"
+
+        # World (map) sprite
+        self.image = pg.image.load(path.join(self.game.img_folder, "screwdriver_world.png")).convert_alpha()
+        self.image.set_colorkey(BLACK)
+        
+        # Inventory icon (UI)
+        self.inventory_image = pg.image.load(path.join(self.game.img_folder, "screwdriver_inventory.png")).convert_alpha()
+        self.inventory_image.set_colorkey(BLACK)
+        
         self.rect = self.image.get_rect()
         self.rect.x = x * TILESIZE[0]
-        self.rect.y = y *TILESIZE[1]
-        # coin behavior
+        self.rect.y = y * TILESIZE[1]
+
+
+# Class under parent class Sprite
+# Defines an unmoveable vent that only allows passage
+# if the player has at least one screwdriver
+class Vent(Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.groups = game.all_sprites, game.all_walls
+        Sprite.__init__(self, self.groups)
+
+        # Vent sprite image
+        self.image = pg.image.load(path.join(self.game.img_folder, "vent.png")).convert_alpha()
+
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILESIZE[0]
+        self.rect.y = y * TILESIZE[1]
+
+        # Identifies this wall as a vent
+        self.state = "vent"
+
+        # Vent does not move
+        self.vel = vec(0, 0)
+        self.pos = vec(self.rect.x, self.rect.y)
+
+    def update(self):
+        # Vent is static; nothing updates
         pass
+
 
 
 # Detects collisions with 

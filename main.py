@@ -27,7 +27,7 @@ class Game:
       pg.init()
       self.clock = pg.time.Clock()
       self.screen = pg.display.set_mode((WIDTH, HEIGHT))
-      pg.display.set_caption("Escape!")
+      pg.display.set_caption("Shadow Escape!")
       self.playing = True
       self.running = True
 
@@ -55,14 +55,13 @@ class Game:
     # create all sprite groups
     self.all_sprites = pg.sprite.Group()
     self.all_mobs = pg.sprite.Group()
-    self.all_coins = pg.sprite.Group()
+    self.all_items = pg.sprite.Group()
     self.all_walls = pg.sprite.Group()
     self.all_projectiles = pg.sprite.Group()
     self.all_swords = pg.sprite.Group() 
     self.all_moveable_balls = pg.sprite.Group()
     self.all_searchables = pg.sprite.Group()
     self.floor_tiles = []
-    self.mob_count = 0  # counter for alternating mob direction
 
     # places the sprite based off the tilemap
     #self.sword = Sword(self, 0,0)
@@ -75,22 +74,16 @@ class Game:
             if tile == '2':
                 Wall(self, col, row, "moveable")
             if tile == '3':
-                Wall(self, col, row, "searchable")
+                Vent(self, col, row)
             if tile == '.':
-                self.floor_tiles.append((col, row))
-            elif tile == 'C':
-                Coin(self, col, row)
+                pass
+            elif tile == 'S':
+                Screwdriver(self, col, row)
             elif tile == 'P':
                 self.player = Player(self, col, row)
             elif tile == 'M':
-                mob = Mob(self, col, row)
-                # Alternate initial direction
-                if self.mob_count % 2 == 0:
-                    mob.direction = 1   # move right
-                else:
-                    mob.direction = -1  # move left
-                self.mob_count += 1
-            # keep appending floor tiles as before
+                Mob(self, col, row)
+            # tiles for the background
             self.floor_tiles.append((col, row))
 
    # Runs the program and calls the function
@@ -108,19 +101,9 @@ class Game:
    def events(self):
       for event in pg.event.get():
          if event.type == pg.QUIT:
-         #  print("this is happening")
             if self.playing:
                self.playing = False
             self.running = False
-         # Checks for inputs on k and sets self.player.attacking = True
-         if event.type == pg.KEYDOWN:
-           if event.key == pg.K_k:
-              self.player.attacking = True
-              self.player.weapon = Sword(self, self.player.rect.x, self.player.rect.y)
-         if event.type == pg.KEYUP:
-            if event.key == pg.K_k:
-              self.player.attacking = False
-              self.player.weapon.kill()
 
          # Checks for inputs on left control and sets crouching state to true or false
          # Calls crouch function in Player class
@@ -129,22 +112,22 @@ class Game:
                self.vision_radius = 70
                self.player.crouching = True
                self.player.crouch()
+         # If the player stops holding left control
          if event.type == pg.KEYUP:
             if event.key == pg.K_LCTRL:
                self.vision_radius = 120
                self.player.try_uncrouch()
-   # updates the game's sprites, time, coins
+   # updates the game's sprites, time, screwdrivers
    def update(self):
       self.all_sprites.update()
-      seconds = pg.time.get_ticks()//1000
+      seconds = pg.time.get_ticks()//1000 
       countdown = 10
       self.time = countdown - seconds
-      if len(self.all_coins) == 0:
-         for i in range(2,5):
-            Coin(self, randint(1, 20), randint(1,20))
+
    # Provides the basic settings to draw text
    def draw_text(self, surface, text, size, color, x, y):
-        font_name = pg.font.match_font('arial')
+        #font_name = pg.font.match_font('lower-pixel-regular')
+        font_name = pg.font.match_font('ArcadeClassic')
         font = pg.font.Font(font_name, size)
         text_surface = font.render(text, True, color)
         text_rect = text_surface.get_rect()
@@ -152,17 +135,12 @@ class Game:
         surface.blit(text_surface, text_rect)
    # Draw darkness over the whole screen
    def draw_darkness(self):
-      self.darkness.fill((0, 0, 0, 235))
+      self.darkness.fill((0, 0, 0, 245))
 
       px, py = self.player.rect.center
 
       # Circle around player's x and y
-      pg.draw.circle(
-         self.darkness,
-         (0, 0, 0, 0),
-         (int(px), int(py)),
-         self.vision_radius
-      )
+      pg.draw.circle(self.darkness, (0, 0, 0, 0), (int(px), int(py)), self.vision_radius)
 
       self.screen.blit(self.darkness, (0, 0))
 
@@ -173,18 +151,18 @@ class Game:
       # draw floor tiles
       for col, row in self.floor_tiles:
          self.screen.blit(self.tile_img,(col * TILESIZE[0], row * TILESIZE[1]))
-
+ 
       self.all_sprites.draw(self.screen)
-
       # draw mob vision triangles on top of sprites
       for mob in self.all_mobs:
          mob.draw_vision(self.screen)
 
       self.draw_darkness()
-
-      self.draw_text(self.screen, str(self.player.health), 24, WHITE, 100, 100)
-      self.draw_text(self.screen, str(self.player.coins), 24, WHITE, 400, 100)
-      self.draw_text(self.screen, str(self.time), 24, WHITE, 500, 100)
+      self.draw_text(self.screen, str(self.player.health), 30, WHITE, 282, 45)
+      #self.draw_text(self.screen, str(self.player.coins), 24, WHITE, 400, 100)
+      #self.draw_text(self.screen, str(self.time), 24, WHITE, 500, 100)
+      self.player.draw_health_bar(self.screen)
+      self.player.draw_inventory(self.screen)
 
       pg.display.flip()
 
@@ -204,7 +182,7 @@ class Game:
       #   pg.mixer.music.load(path.join(self.snd_dir, 'Yippee.ogg'))
       #   pg.mixer.music.play(loops=-1)
         self.screen.fill(BLACK)
-        self.draw_text(self.screen,"PRESS ANY KEY TO START", 48, WHITE, WIDTH / 2, HEIGHT / 4)
+        self.draw_text(self.screen,"ALWAYS   STAY   OUT   OF   LIGHT", 48, WHITE, WIDTH / 2, HEIGHT / 4)
         pg.display.flip()
         self.wait_for_key()
         pg.mixer.music.fadeout(500)
