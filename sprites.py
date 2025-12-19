@@ -325,6 +325,11 @@ class Player(Sprite):
     def has_screwdriver(self):
         return any(getattr(item, 'name', '') == 'screwdriver' for item in self.inventory)
 
+    def has_crowbar(self):
+        return any(getattr(item, 'name', '') == 'crowbar' for item in self.inventory)
+    
+
+
     # Detects if the sprite collides with each other
     # Player collides with Wall
     def collide_with_walls(self, dir):
@@ -337,7 +342,16 @@ class Player(Sprite):
                     if hit.state == "vent" and self.has_screwdriver() and self.crouching:
                         hit.kill()
                         continue  # skip further collision processing for this vent
-
+                    # Inside Player.collide_with_walls, where you check for vent
+                    # Destroy box if has crowbar 
+                    if hit.state == "box" and self.has_crowbar():
+                        hit.destroy()  # uses destroy() method to drop key if applicable
+                        continue  # skip further collision processing
+                    # Destroy door if player has a key
+                    if hit.state == "door":
+                        if any(getattr(item, 'name', '') == 'key' for item in self.inventory):
+                            hit.kill()
+                            continue
                     # Existing collision logic
                     if self.vel.x > 0:  # moving right
                         if hit.state == "moveable":
@@ -361,7 +375,14 @@ class Player(Sprite):
                     if hit.state == "vent" and self.has_screwdriver() and self.crouching:
                         hit.kill()
                         continue  # skip further collision processing for this vent
-
+                    if hit.state == "box" and self.has_crowbar():
+                        hit.destroy()  # uses destroy() method to drop key if applicable
+                        continue  # skip further collision processing
+                    # Destroy door if player has a key
+                    if hit.state == "door":
+                        if any(getattr(item, 'name', '') == 'key' for item in self.inventory):
+                            hit.kill()
+                            continue
                     # Existing collision logic
                     if self.vel.y > 0:  # moving down
                         if hit.state == "moveable":
@@ -384,6 +405,11 @@ class Player(Sprite):
         if hits:
             if isinstance(hits[0], Screwdriver):
                 self.inventory.append(hits[0])
+            if isinstance(hits[0], Crowbar):
+                self.inventory.append(hits[0])
+            if isinstance(hits[0], Key):
+                self.inventory.append(hits[0])
+            
 
 
     # Adds a health bar using the percentage of the player's current health from the original
@@ -408,7 +434,7 @@ class Player(Sprite):
         else:
             color = GREEN
         pg.draw.rect(surface, color, fg_rect)
-        # Optional: border
+        # border
         pg.draw.rect(surface, WHITE, bg_rect, 2)
 
     # draws inventory at tjhe bottom of the screen
@@ -424,10 +450,14 @@ class Player(Sprite):
             icon = pg.transform.scale(item.inventory_image, (self.icon_size, self.icon_size))
             x = start_x + i * (self.icon_size + self.padding)
             surface.blit(icon, (x, y))
-
+    
 
     # Updates player behavior, animation, and detection for collisions
     def update(self):
+        # Keep the player from updating during level transition
+        if self.game.transitioning:
+            return
+
         self.get_keys()
         self.animate()
         self.pos += self.vel
@@ -444,7 +474,13 @@ class Player(Sprite):
         keys = pg.key.get_pressed()
         if self.crouching and not keys[pg.K_LCTRL] and self.can_uncrouch():
             self.try_uncrouch()
-
+        
+        if self.health <= 0:
+            self.player_died()
+        
+        if self.game.time == 0:
+            self.player_died()
+            
         # Gravity + jumping
         # Not a method to not allow for spam jumping in the air
         if self.jumping:
@@ -479,6 +515,47 @@ class Player(Sprite):
                 self.jumping = False
                 self.y_velocity = self.jump_height
             self.rect.y = self.pos.y
+            
+        # Check if player leaves the map on the LEFT side
+        tile_x = int(self.pos.x // TILESIZE[0])
+
+        if tile_x < 0 and not self.game.transitioning:
+            self.game.transitioning = True
+            self.game.map_state += 1
+            self.game.playing = False
+            if self.game.map_state == 4:
+                # Fill the screen with black or red
+                self.game.screen.fill(BLACK)
+                font = pg.font.SysFont("ArcadeClassic", 72)
+                text = font.render("VICTORY", True, YELLOW)
+                text_rect = text.get_rect(center=(WIDTH//2, HEIGHT//2))
+                self.game.screen.blit(text, text_rect)
+                self.health = 100
+                pg.display.flip()
+
+                # Wait 3 seconds
+                pg.time.delay(3000)
+                
+                # Quit game
+                pg.quit()
+                exit()
+
+    # Player death
+    def player_died(self):
+        # Fill the screen with black or red
+        self.game.screen.fill(BLACK)
+        font = pg.font.SysFont("ArcadeClassic", 72)
+        text = font.render("YOU DIED", True, RED)
+        text_rect = text.get_rect(center=(WIDTH//2, HEIGHT//2))
+        self.game.screen.blit(text, text_rect)
+        pg.display.flip()
+
+        # Wait 3 seconds
+        pg.time.delay(3000)
+        
+        # Quit game
+        pg.quit()
+        exit()
 
 
 # Created under parent class Sprite
@@ -556,7 +633,6 @@ class Mob(Sprite):
         # check if mob can see player
         if self.can_see_player():
             if self.damage_cd.ready():
-                print("PLAYER SPOTTED")
                 self.game.player.health -= 20
                 self.game.player.last_damage_time = pg.time.get_ticks()
                 self.damage_cd.start()
@@ -622,6 +698,26 @@ class Screwdriver(Sprite):
         self.rect.x = x * TILESIZE[0]
         self.rect.y = y * TILESIZE[1]
 
+# Class under parent class Sprite
+# Defines a collectible crowbar item
+class Crowbar(Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.groups = game.all_sprites, game.all_items
+        Sprite.__init__(self, self.groups)
+        self.name = "crowbar"
+
+        # World (map) sprite
+        self.image = pg.image.load(path.join(self.game.img_folder, "crowbar_world.png")).convert_alpha()
+        self.image.set_colorkey(BLACK)
+        
+        # Inventory icon (UI)
+        self.inventory_image = pg.image.load(path.join(self.game.img_folder, "crowbar_inventory.png")).convert_alpha()
+        self.inventory_image.set_colorkey(BLACK)
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILESIZE[0]
+        self.rect.y = y * TILESIZE[1]
 
 # Class under parent class Sprite
 # Defines an unmoveable vent that only allows passage
@@ -650,6 +746,154 @@ class Vent(Sprite):
         # Vent is static; nothing updates
         pass
 
+# Class under parent class Sprite
+# Defines a collectible key item
+class Key(Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.groups = game.all_sprites, game.all_items
+        Sprite.__init__(self, self.groups)
+        self.name = "key"
+
+        # World (map) sprite
+        self.image = pg.image.load(path.join(self.game.img_folder, "key_world.png")).convert_alpha()
+        self.image.set_colorkey(BLACK)
+        
+        # Inventory icon (UI)
+        self.inventory_image = pg.image.load(path.join(self.game.img_folder, "key_inventory.png")).convert_alpha()
+        self.inventory_image.set_colorkey(BLACK)
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILESIZE[0]
+        self.rect.y = y * TILESIZE[1]
+
+
+# Class under parent class Sprite
+# Updated Box class to optionally drop a key
+class Box(Sprite):
+    def __init__(self, game, x, y, drops_key=False):
+        self.game = game
+        self.groups = game.all_sprites, game.all_walls
+        Sprite.__init__(self, self.groups)
+
+        # Box sprite image
+        self.image = pg.image.load(path.join(self.game.img_folder, "box.png")).convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILESIZE[0]
+        self.rect.y = y * TILESIZE[1]
+
+        self.state = "box"
+        self.vel = vec(0, 0)
+        self.pos = vec(self.rect.x, self.rect.y)
+
+        self.drops_key = drops_key  # Controls if it drops a key
+
+    def destroy(self):
+        if self.drops_key:
+            Key(self.game, self.rect.x // TILESIZE[0], self.rect.y // TILESIZE[1])
+        self.kill()
+
+# Class under parent class Sprite
+# Defines a door that requires a key to open/destroy
+class Door(Sprite):
+    def __init__(self, game, x, y):
+        self.game = game
+        self.groups = game.all_sprites, game.all_walls
+        Sprite.__init__(self, self.groups)
+
+        # Load door image and scale to 1 tile width, 2 tiles height
+        self.image = pg.image.load(path.join(self.game.img_folder, "door.png")).convert_alpha()
+        self.image = pg.transform.scale(self.image, (TILESIZE[0], TILESIZE[1] * 2))
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILESIZE[0]
+        self.rect.y = y * TILESIZE[1]
+
+        self.state = "door"
+        self.vel = vec(0, 0)
+        self.pos = vec(self.rect.x, self.rect.y)
+
+    def update(self):
+        # Doors are static; nothing moves
+        pass
+
+# Class under parent class Sprite
+# A door-like decoration that does not block the player
+class Lastdoor(Sprite):
+    def __init__(self, game, x, y):
+        self.groups = game.all_sprites
+        Sprite.__init__(self, self.groups)
+        self.game = game
+
+        # Load door image and scale to same size as regular Door
+        self.image = pg.image.load(path.join(self.game.img_folder, "lastdoor.png")).convert_alpha()
+        self.image = pg.transform.scale(self.image, (TILESIZE[0], TILESIZE[1] * 2))
+
+        self.rect = self.image.get_rect()
+        self.rect.x = x * TILESIZE[0]
+        self.rect.y = y * TILESIZE[1]
+
+        # Optional: track position if needed for animations
+        self.pos = vec(self.rect.x, self.rect.y)
+
+    def update(self):
+        # Fake door is purely visual, no collisions or logic
+        pass
+
+    # Method to attempt opening the door
+    def try_open(self, player):
+        if any(getattr(item, 'name', '') == 'key' for item in player.inventory):
+            self.kill()  # Remove the door if player has a key
+
+# Class under parent clas Sprite
+# Spotlight for player to dodge
+class Spotlight(pg.sprite.Sprite):
+    def __init__(self, game, x, y):
+        self.groups = game.all_sprites
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+
+        # Width in tiles: 3 horizontal tiles
+        self.width = TILESIZE[0] * 3
+        self.height = TILESIZE[1] * 2  # 2 vertical tiles
+
+        # Create a surface with transparency
+        self.image = pg.Surface((self.width, self.height), pg.SRCALPHA)
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x * TILESIZE[0], y * TILESIZE[1])
+
+        self.flicker_timer = 0
+        self.flicker_interval = 1500  # milliseconds
+        self.on = True  # spotlight initially on
+
+        # Triangle points for the spotlight
+        self.triangle = [
+            (self.width // 2, 0),  # peak at top center
+            (0, self.height),      # bottom left
+            (self.width, self.height)  # bottom right
+        ]
+
+        # Cooldown to prevent spamming health loss
+        self.damage_cd = Cooldown(1000)  # 1 second cooldown
+
+    def update(self):
+        now = pg.time.get_ticks()
+        if now - self.flicker_timer > self.flicker_interval:
+            self.on = not self.on
+            self.flicker_timer = now
+
+        # Clear surface
+        self.image.fill((0, 0, 0, 0))
+        if self.on:
+            pg.draw.polygon(self.image, (255, 255, 0, 128), self.triangle)
+
+        # Check collision with player
+        if self.on and self.rect.colliderect(self.game.player.rect):
+            # Cooldown, damages player 10 if collision
+            if self.damage_cd.ready():
+                self.game.player.health -= 10
+                self.game.player.last_damage_time = pg.time.get_ticks()
+                self.damage_cd.start()
 
 
 # Detects collisions with 
