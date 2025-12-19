@@ -39,7 +39,7 @@ class Game:
       self.red_flash_interval = 1200
 
       self.level3_start_time = 0
-      self.level3_duration = 60  # seconds
+      self.level3_duration = 30
       self.time = self.level3_duration
 
 
@@ -58,6 +58,8 @@ class Game:
       if self.map_state == 3:
          map_file = 'level3.txt'
          self.show_level_intro("LEVEL 3   FINAL   STRETCH", YELLOW)
+         self.level3_start_time = pg.time.get_ticks()
+         self.time = self.level3_duration
 
       if self.map_state == 2:
          map_file = 'level2.txt'
@@ -157,7 +159,6 @@ class Game:
    # updates the game's sprites, time, screwdrivers
    def update(self):
       self.all_sprites.update()
-
       if self.map_state == 3:
          now = pg.time.get_ticks()
          # trigger flash every interval
@@ -210,6 +211,8 @@ class Game:
       self.draw_text(self.screen, str(self.player.health), 30, WHITE, 282, 45)
       if self.map_state == 1: 
          self.draw_text(self.screen, "FIND    A     TOOL    TO    USE", 15, YELLOW, WIDTH-200, 50)
+      if self.map_state == 2:
+         self.draw_text(self.screen, "FIND    A     TOOL    TO    OPEN   THE    BOXES", 15, YELLOW, WIDTH-200, 50)
       if self.map_state == 3:
          self.draw_text(self.screen, f"ALL     DOORS     WILL     LOCK     IN    {self.time}    SECONDS", 40, WHITE, 337, 100)
       self.player.draw_health_bar(self.screen)

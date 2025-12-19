@@ -18,6 +18,7 @@ vec = pg.math.Vector2
 
 # https://www.youtube.com/watch?v=ST-Qq3WBZBE: source to add jump
 # Used help from ChatGPT with uncrouching method (debugging the hitboxes) and can_see_player() method in Mob class
+# Used help from ChatGPT with spotlights
 
 # Class under parent class Sprite
 # Defines a new sprite that the player can control based off key inputs
@@ -567,7 +568,7 @@ class Mob(Sprite):
         Sprite.__init__(self, self.groups)
 
         self.image = pg.Surface((64, 64))
-        self.image.fill(RED)
+        self.image.fill(BLACK)
         self.rect = self.image.get_rect()
 
         self.pos = vec(x, y) * TILESIZE[0]
@@ -863,7 +864,7 @@ class Spotlight(pg.sprite.Sprite):
         self.rect.topleft = (x * TILESIZE[0], y * TILESIZE[1])
 
         self.flicker_timer = 0
-        self.flicker_interval = 1500  # milliseconds
+        self.flicker_interval = 1750  # milliseconds
         self.on = True  # spotlight initially on
 
         # Triangle points for the spotlight
